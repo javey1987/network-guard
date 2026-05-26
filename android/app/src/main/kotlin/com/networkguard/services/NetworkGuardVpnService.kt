@@ -2,6 +2,7 @@ package com.networkguard.services
 
 import android.app.Notification
 import android.app.NotificationChannel
+import java.util.HashMap
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
@@ -271,11 +272,11 @@ class NetworkGuardVpnService : android.net.VpnService() {
 
     private fun loadConfig(): Map<String, String> {
         val prefs = getSharedPreferences("vpn_prefs", MODE_PRIVATE)
-        return mapOf(
-            "blockWifi" to prefs.getBoolean("blockWifi", true).toString(),
-            "blockMobile" to prefs.getBoolean("blockMobile", true).toString(),
-            "reason" to prefs.getString("reason", "定时断网") ?: "定时断网"
-        )
+        val result = HashMap<String, String>()
+        result["blockWifi"] = prefs.getBoolean("blockWifi", true).toString()
+        result["blockMobile"] = prefs.getBoolean("blockMobile", true).toString()
+        result["reason"] = prefs.getString("reason", "定时断网") ?: "定时断网"
+        return result
     }
 
     // ─── 静态方法供 Flutter 调用 ──────────────────────────────
