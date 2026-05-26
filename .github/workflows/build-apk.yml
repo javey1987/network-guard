@@ -26,14 +26,10 @@ jobs:
       - name: 📦 Install dependencies
         run: flutter pub get
 
-      - name: 🔨 Build Debug APK
+      - name: 🔨 Build APK
         run: flutter build apk --debug
 
-      - name: 🔨 Try Release APK
-        continue-on-error: true
-        run: flutter build apk --release || echo "Release build optional, skipping"
-
-      - name: 📤 Upload Debug APK
+      - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: network-guard-apk
