@@ -1,0 +1,49 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - 'ui_design.html'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🎯 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+
+      - name: 📦 Install dependencies
+        run: flutter pub get
+
+      - name: 🔨 Build APK
+        run: flutter build apk --release
+
+      - name: 📤 Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-guard-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: 📤 Upload APK (debug)
+        if: success() || failure()
+        run: flutter build apk --debug
+
+      - name: 📤 Upload Debug APK
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-guard-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: ignore
