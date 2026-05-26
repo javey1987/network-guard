@@ -19,15 +19,15 @@ class NotificationService {
     await _plugin.initialize(initSettings);
   }
 
-  /// 通知：正在断网
+  /// 通知：正在断网（常驻通知，不可清除）
   static Future<void> showBlockStarted(String ruleName) async {
     const androidDetails = AndroidNotificationDetails(
       'network_block',
       '断网通知',
       channelDescription: '定时断网提醒',
-      importance: NotificationImportance.high,
-      priority: NotificationPriority.high,
-      ongoing: true, // 不可滑动关闭
+      importance: Importance.high,
+      priority: Priority.high,
+      ongoing: true,
       autoCancel: false,
     );
     const details = NotificationDetails(
@@ -48,8 +48,8 @@ class NotificationService {
       'network_block',
       '断网通知',
       channelDescription: '定时断网提醒',
-      importance: NotificationImportance.defaultImportance,
-      priority: NotificationPriority.defaultPriority,
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
     );
     const details = NotificationDetails(
       android: androidDetails,
@@ -63,14 +63,14 @@ class NotificationService {
     );
   }
 
-  /// 通知：即将断网（提前 5 分钟提醒）
+  /// 通知：即将断网
   static Future<void> showUpcomingBlock(String ruleName, int minutesLeft) async {
     const androidDetails = AndroidNotificationDetails(
       'network_block_upcoming',
       '断网预告',
       channelDescription: '即将断网提醒',
-      importance: NotificationImportance.defaultImportance,
-      priority: NotificationPriority.defaultPriority,
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
     );
     const details = NotificationDetails(
       android: androidDetails,
