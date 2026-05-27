@@ -23,7 +23,20 @@ class HomeScreen extends StatelessWidget {
                 color: provider.isNetworkBlocked ? Colors.orange : null,
               ),
               tooltip: provider.isNetworkBlocked ? '恢复网络' : '手动断网',
-              onPressed: () => provider.manualToggle(),
+              onPressed: () async {
+                final result = await provider.manualToggle();
+                if (result == null) {
+                  // VPN 需要授权，系统应该弹出了授权框
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('请在系统弹窗中允许 VPN 连接'),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                }
+              },
             ),
           ),
         ],

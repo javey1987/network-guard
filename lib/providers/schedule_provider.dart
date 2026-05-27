@@ -107,21 +107,30 @@ class ScheduleProvider extends ChangeNotifier {
   }
 
   /// 手动切换封锁状态（测试用）
-  Future<void> manualToggle() async {
+  /// 返回 true=已封锁, false=未封锁, null=需要授权
+  Future<bool?> manualToggle() async {
     if (_isNetworkBlocked) {
       await VpnService.stopVpn();
       _isNetworkBlocked = false;
       _activeRule = '';
+      notifyListeners();
+      return false;
     } else {
-      await VpnService.startVpn(
+      final started = await VpnService.startVpn(
         blockWifi: true,
         blockMobile: true,
         reason: '手动断网',
       );
-      _isNetworkBlocked = true;
-      _activeRule = '手动';
+      if (started) {
+        _isNetworkBlocked = true;
+        _activeRule = '手动';
+        notifyListeners();
+        return true;
+      } else {
+        // VPN 未授权，静默失败（系统会弹出授权框）
+        return null;
+      }
     }
-    notifyListeners();
   }
 
   /// 获取下一个活跃规则
