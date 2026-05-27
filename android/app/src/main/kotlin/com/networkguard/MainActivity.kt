@@ -27,9 +27,15 @@ class MainActivity : FlutterActivity() {
                         // 检查 VPN 是否已获得用户授权
                         val prepareIntent = VpnService.prepare(this)
                         if (prepareIntent != null) {
-                            // 未授权 → 弹出系统授权对话框，返回 false
+                            // 未授权 → 弹出系统授权对话框
                             // 用户授权后需要再次触发 startVpn
-                            startActivity(prepareIntent)
+                            try {
+                                startActivity(prepareIntent.apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                })
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
                             result.success(false)
                         } else {
                             // 已授权 → 启动 VPN 服务
