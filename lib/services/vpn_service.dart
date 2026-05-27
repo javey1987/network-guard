@@ -4,6 +4,24 @@ import 'package:flutter/services.dart';
 class VpnService {
   static const _channel = MethodChannel('com.networkguard/vpn');
 
+  static VoidCallback? _onVpnAuthorizedCallback;
+
+  /// 初始化回调监听（接收 Native → Flutter 的异步通知）
+  static void init() {
+    _channel.setMethodCallHandler((call) async {
+      switch (call.method) {
+        case 'onVpnAuthorized':
+          _onVpnAuthorizedCallback?.call();
+          break;
+      }
+    });
+  }
+
+  /// 设置 VPN 授权成功的回调
+  static void setOnVpnAuthorizedCallback(VoidCallback callback) {
+    _onVpnAuthorizedCallback = callback;
+  }
+
   /// 启动 VPN（封锁网络）
   static Future<bool> startVpn({
     required bool blockWifi,

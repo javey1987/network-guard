@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/schedule_provider.dart';
+import 'services/vpn_service.dart';
 import 'services/notification_service.dart';
 import 'screens/home_screen.dart';
 
@@ -11,6 +12,9 @@ void main() async {
 
   // 初始化通知
   await NotificationService.init();
+
+  // 初始化 VPN 原生回调监听
+  VpnService.init();
 
   // 强制竖屏
   await SystemChrome.setPreferredOrientations([

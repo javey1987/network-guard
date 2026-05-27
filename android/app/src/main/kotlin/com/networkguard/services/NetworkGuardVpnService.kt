@@ -38,6 +38,12 @@ class NetworkGuardVpnService : android.net.VpnService() {
     private var isRunning = false
     private var tunnelThread: Thread? = null
 
+    // 缓存封锁配置，避免每包都读 SharedPreferences（性能优化）
+    @Volatile
+    private var cachedBlockWifi: Boolean = true
+    @Volatile
+    private var cachedBlockMobile: Boolean = true
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
@@ -114,6 +120,9 @@ class NetworkGuardVpnService : android.net.VpnService() {
             }
 
             isRunning = true
+            // 缓存封锁配置，不再每包读 SharedPreferences
+            cachedBlockWifi = blockWifi
+            cachedBlockMobile = blockMobile
             saveStatus("running")
             saveConfig(blockWifi, blockMobile, reason)
 
@@ -140,7 +149,6 @@ class NetworkGuardVpnService : android.net.VpnService() {
         val packet = ByteBuffer.allocate(32767)
 
         val ipHeader = ByteArray(20)
-        val config = loadConfig()
 
         while (isRunning) {
             try {
@@ -186,14 +194,16 @@ class NetworkGuardVpnService : android.net.VpnService() {
      * 处理 IPv4 数据包。
      * 在封锁模式下丢弃所有数据包（即不写入 output）。
      */
+    /**
+     * 处理 IPv4 数据包。
+     * 在封锁模式下丢弃所有数据包（即不写入 output）。
+     *
+     * 使用 cachedBlockWifi/cachedBlockMobile 判断，
+     * 避免每包读取 SharedPreferences（每包 I/O 会严重拖慢整机网络）。
+     */
     private fun handleIPv4Packet(packet: ByteArray, output: FileOutputStream) {
-        // 从 VPN 配置读取是否应该丢弃
-        val config = loadConfig()
-        val shouldDrop = config["blockWifi"] == "true" || config["blockMobile"] == "true"
-
-        if (shouldDrop) {
+        if (cachedBlockWifi || cachedBlockMobile) {
             // 丢弃——数据包不被转发，实现断网
-            // 不写入 output
             return
         }
 

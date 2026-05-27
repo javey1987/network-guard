@@ -15,6 +15,15 @@ class ScheduleProvider extends ChangeNotifier {
   bool get isNetworkBlocked => _isNetworkBlocked;
   String get activeRuleName => _activeRule;
 
+  ScheduleProvider() {
+    // 监听 Native 端 VPN 授权成功的回调
+    VpnService.setOnVpnAuthorizedCallback(() {
+      _isNetworkBlocked = true;
+      _activeRule = '手动';
+      notifyListeners();
+    });
+  }
+
   /// 加载所有规则
   Future<void> loadRules() async {
     _rules = await DatabaseService.getAll();
