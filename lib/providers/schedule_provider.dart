@@ -72,7 +72,7 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> _checkAndApply() async {
     final now = DateTime.now();
 
-    // 先检查 VPN 是否还在运行（可能被用户手动撤销）
+    // 如果显示已封锁，先检查 VPN 是否真的在运行
     if (_isNetworkBlocked) {
       final stillRunning = await VpnService.isVpnRunning();
       if (!stillRunning) {
@@ -92,34 +92,23 @@ class ScheduleProvider extends ChangeNotifier {
     }
 
     if (activeRule != null && !_isNetworkBlocked) {
-      // 需要封锁 — 先启动 VPN，成功后更新 UI
-      final started = await VpnService.startVpn(
-        blockWifi: activeRule.blockWifi,
-        blockMobile: activeRule.blockMobile,
-        reason: activeRule.name,
-      );
-      if (started) {
-        _isNetworkBlocked = true;
-        _activeRule = activeRule.name;
-        notifyListeners();
-        await NotificationService.showBlockStarted(activeRule.name);
-      }
-    } else if (activeRule == null && _isNetworkBlocked) {
-      // 需要解锁
-      await VpnService.stopVpn();
-      _isNetworkBlocked = false;
-      _activeRule = '';
-      notifyListeners();
-      await NotificationService.showBlockEnded(_activeRule);
-    } else if (activeRule != null && _isNetworkBlocked && activeRule.name != _activeRule) {
-      // 切换到另一条规则，通知 VPN 服务更新配置
+      // 需要封锁 — 启动 VPN（启动后自动拦截所有流量）
       await VpnService.startVpn(
         blockWifi: activeRule.blockWifi,
         blockMobile: activeRule.blockMobile,
         reason: activeRule.name,
       );
+      _isNetworkBlocked = true;
       _activeRule = activeRule.name;
       notifyListeners();
+      await NotificationService.showBlockStarted(activeRule.name);
+    } else if (activeRule == null && _isNetworkBlocked) {
+      // 需要解锁 — 关闭 VPN 即可恢复网络
+      await VpnService.stopVpn();
+      _isNetworkBlocked = false;
+      _activeRule = '';
+      notifyListeners();
+      await NotificationService.showBlockEnded(_activeRule);
     }
   }
 
@@ -130,15 +119,13 @@ class ScheduleProvider extends ChangeNotifier {
       _isNetworkBlocked = false;
       _activeRule = '';
     } else {
-      final started = await VpnService.startVpn(
+      await VpnService.startVpn(
         blockWifi: true,
         blockMobile: true,
         reason: '手动断网',
       );
-      if (started) {
-        _isNetworkBlocked = true;
-        _activeRule = '手动';
-      }
+      _isNetworkBlocked = true;
+      _activeRule = '手动';
     }
     notifyListeners();
   }
