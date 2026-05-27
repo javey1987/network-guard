@@ -72,16 +72,6 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> _checkAndApply() async {
     final now = DateTime.now();
 
-    // 如果显示已封锁，先检查 VPN 是否真的在运行
-    if (_isNetworkBlocked) {
-      final stillRunning = await VpnService.isVpnRunning();
-      if (!stillRunning) {
-        _isNetworkBlocked = false;
-        _activeRule = '';
-        notifyListeners();
-      }
-    }
-
     // 找当前激活的规则
     ScheduleRule? activeRule;
     for (final rule in _rules) {
@@ -92,23 +82,27 @@ class ScheduleProvider extends ChangeNotifier {
     }
 
     if (activeRule != null && !_isNetworkBlocked) {
-      // 需要封锁 — 启动 VPN（启动后自动拦截所有流量）
+      // 需要封锁
+      _isNetworkBlocked = true;
+      _activeRule = activeRule.name;
+      notifyListeners();
       await VpnService.startVpn(
         blockWifi: activeRule.blockWifi,
         blockMobile: activeRule.blockMobile,
         reason: activeRule.name,
       );
-      _isNetworkBlocked = true;
-      _activeRule = activeRule.name;
-      notifyListeners();
       await NotificationService.showBlockStarted(activeRule.name);
     } else if (activeRule == null && _isNetworkBlocked) {
-      // 需要解锁 — 关闭 VPN 即可恢复网络
-      await VpnService.stopVpn();
+      // 需要解锁
       _isNetworkBlocked = false;
       _activeRule = '';
       notifyListeners();
+      await VpnService.stopVpn();
       await NotificationService.showBlockEnded(_activeRule);
+    } else if (activeRule != null && _isNetworkBlocked && activeRule.name != _activeRule) {
+      // 切换到另一条规则
+      _activeRule = activeRule.name;
+      notifyListeners();
     }
   }
 
