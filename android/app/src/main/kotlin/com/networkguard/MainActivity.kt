@@ -29,8 +29,15 @@ class MainActivity : FlutterActivity() {
                             putExtra("blockMobile", blockMobile)
                             putExtra("reason", reason)
                         }
-                        startService(intent)
-                        result.success(true)
+                        // 检查 VPN 授权状态
+                        val prepareIntent = VpnService.prepare(this)
+                        if (prepareIntent != null) {
+                            // 用户未授权 VPN → 返回 false
+                            result.success(false)
+                        } else {
+                            startService(intent)
+                            result.success(true)
+                        }
                     }
                     "stopVpn" -> {
                         val intent = Intent(this, NetworkGuardVpnService::class.java).apply {

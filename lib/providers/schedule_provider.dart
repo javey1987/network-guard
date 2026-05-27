@@ -72,6 +72,16 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> _checkAndApply() async {
     final now = DateTime.now();
 
+    // 先检查 VPN 是否还在运行（可能被用户手动撤销）
+    if (_isNetworkBlocked) {
+      final stillRunning = await VpnService.isVpnRunning();
+      if (!stillRunning) {
+        _isNetworkBlocked = false;
+        _activeRule = '';
+        notifyListeners();
+      }
+    }
+
     // 找当前激活的规则
     ScheduleRule? activeRule;
     for (final rule in _rules) {
@@ -82,25 +92,32 @@ class ScheduleProvider extends ChangeNotifier {
     }
 
     if (activeRule != null && !_isNetworkBlocked) {
-      // 需要封锁
-      _isNetworkBlocked = true;
-      _activeRule = activeRule.name;
+      // 需要封锁 — 先启动 VPN，成功后更新 UI
+      final started = await VpnService.startVpn(
+        blockWifi: activeRule.blockWifi,
+        blockMobile: activeRule.blockMobile,
+        reason: activeRule.name,
+      );
+      if (started) {
+        _isNetworkBlocked = true;
+        _activeRule = activeRule.name;
+        notifyListeners();
+        await NotificationService.showBlockStarted(activeRule.name);
+      }
+    } else if (activeRule == null && _isNetworkBlocked) {
+      // 需要解锁
+      await VpnService.stopVpn();
+      _isNetworkBlocked = false;
+      _activeRule = '';
       notifyListeners();
+      await NotificationService.showBlockEnded(_activeRule);
+    } else if (activeRule != null && _isNetworkBlocked && activeRule.name != _activeRule) {
+      // 切换到另一条规则，通知 VPN 服务更新配置
       await VpnService.startVpn(
         blockWifi: activeRule.blockWifi,
         blockMobile: activeRule.blockMobile,
         reason: activeRule.name,
       );
-      await NotificationService.showBlockStarted(activeRule.name);
-    } else if (activeRule == null && _isNetworkBlocked) {
-      // 需要解锁
-      _isNetworkBlocked = false;
-      _activeRule = '';
-      notifyListeners();
-      await VpnService.stopVpn();
-      await NotificationService.showBlockEnded(_activeRule);
-    } else if (activeRule != null && _isNetworkBlocked && activeRule.name != _activeRule) {
-      // 切换到另一条规则
       _activeRule = activeRule.name;
       notifyListeners();
     }
@@ -113,13 +130,15 @@ class ScheduleProvider extends ChangeNotifier {
       _isNetworkBlocked = false;
       _activeRule = '';
     } else {
-      await VpnService.startVpn(
+      final started = await VpnService.startVpn(
         blockWifi: true,
         blockMobile: true,
         reason: '手动断网',
       );
-      _isNetworkBlocked = true;
-      _activeRule = '手动';
+      if (started) {
+        _isNetworkBlocked = true;
+        _activeRule = '手动';
+      }
     }
     notifyListeners();
   }
