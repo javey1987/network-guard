@@ -82,18 +82,16 @@ class ScheduleProvider extends ChangeNotifier {
     }
 
     if (activeRule != null && !_isNetworkBlocked) {
-      // 需要封锁 — 等 VPN 真的启动成功再更新 UI
-      final started = await VpnService.startVpn(
+      // 需要封锁
+      _isNetworkBlocked = true;
+      _activeRule = activeRule.name;
+      notifyListeners();
+      await VpnService.startVpn(
         blockWifi: activeRule.blockWifi,
         blockMobile: activeRule.blockMobile,
         reason: activeRule.name,
       );
-      if (started) {
-        _isNetworkBlocked = true;
-        _activeRule = activeRule.name;
-        notifyListeners();
-        await NotificationService.showBlockStarted(activeRule.name);
-      }
+      await NotificationService.showBlockStarted(activeRule.name);
     } else if (activeRule == null && _isNetworkBlocked) {
       // 需要解锁
       _isNetworkBlocked = false;
@@ -115,18 +113,13 @@ class ScheduleProvider extends ChangeNotifier {
       _isNetworkBlocked = false;
       _activeRule = '';
     } else {
-      final started = await VpnService.startVpn(
+      await VpnService.startVpn(
         blockWifi: true,
         blockMobile: true,
         reason: '手动断网',
       );
-      if (started) {
-        _isNetworkBlocked = true;
-        _activeRule = '手动';
-      } else {
-        // VPN 启动失败（可能用户拒绝了授权）
-        // 保持未封锁状态
-      }
+      _isNetworkBlocked = true;
+      _activeRule = '手动';
     }
     notifyListeners();
   }

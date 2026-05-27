@@ -1,7 +1,6 @@
 package com.networkguard
 
 import android.content.Intent
-import android.net.VpnService
 import android.os.Bundle
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
@@ -24,30 +23,14 @@ class MainActivity : FlutterActivity() {
                         val blockMobile = call.argument<Boolean>("blockMobile") ?: true
                         val reason = call.argument<String>("reason") ?: "定时断网"
 
-                        // 检查 VPN 是否已获得用户授权
-                        val prepareIntent = VpnService.prepare(this)
-                        if (prepareIntent != null) {
-                            // 未授权 → 弹出系统授权对话框
-                            // 用户授权后需要再次触发 startVpn
-                            try {
-                                startActivity(prepareIntent.apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                })
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                            result.success(false)
-                        } else {
-                            // 已授权 → 启动 VPN 服务
-                            val intent = Intent(this, NetworkGuardVpnService::class.java).apply {
-                                action = NetworkGuardVpnService.ACTION_START
-                                putExtra("blockWifi", blockWifi)
-                                putExtra("blockMobile", blockMobile)
-                                putExtra("reason", reason)
-                            }
-                            startService(intent)
-                            result.success(true)
+                        val intent = Intent(this, NetworkGuardVpnService::class.java).apply {
+                            action = NetworkGuardVpnService.ACTION_START
+                            putExtra("blockWifi", blockWifi)
+                            putExtra("blockMobile", blockMobile)
+                            putExtra("reason", reason)
                         }
+                        startService(intent)
+                        result.success(true)
                     }
                     "stopVpn" -> {
                         val intent = Intent(this, NetworkGuardVpnService::class.java).apply {
