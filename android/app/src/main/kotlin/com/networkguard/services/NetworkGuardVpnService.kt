@@ -89,9 +89,13 @@ class NetworkGuardVpnService : android.net.VpnService() {
         builder.addDnsServer("8.8.8.8")
         builder.addDnsServer("1.1.1.1")
 
-        // 路由所有流量到虚拟接口（0.0.0.0/0）
+        // 路由所有 IPv4 流量到虚拟接口（0.0.0.0/0）
         builder.addRoute("0.0.0.0", 1)
         builder.addRoute("128.0.0.0", 1)
+
+        // 路由所有 IPv6 流量到虚拟接口（::/0）— 防止 IPv6 绕过封锁
+        builder.addAddress("fd00:1:2:3::2", 126)
+        builder.addRoute("::", 0)
 
         // 设置最大传输单元
         builder.setMtu(1500)
@@ -161,11 +165,8 @@ class NetworkGuardVpnService : android.net.VpnService() {
                     packet.get(fullPacket)
                     handleIPv4Packet(fullPacket, output)
                 } else {
-                    // IPv6 — 放行（防止 IPv6 绕过封锁）
-                    // 实际严格模式下也应丢弃
-                    packet.rewind()
-                    // output.write(packet.array(), packet.arrayOffset(), packet.remaining())
-                    // 丢弃 IPv6 流量（如需支持 IPv6 可取消注释上面一行）
+                    // IPv6 — 丢弃，不转发（和 IPv4 一样处理）
+                    // 不写入 output 即丢弃
                 }
 
             } catch (e: Exception) {
