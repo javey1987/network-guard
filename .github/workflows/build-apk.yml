@@ -30,28 +30,19 @@ jobs:
       - name: 🎯 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.4'
           channel: 'stable'
-          cache: true
 
       - name: 📦 Install dependencies
         run: flutter pub get
 
-      - name: ✅ Analyze (non-blocking)
-        run: flutter analyze || true
-        continue-on-error: true
+      - name: 🏗️ Build APK
+        run: flutter build apk --${{ inputs.build_mode || 'release' }} --split-per-abi 2>&1
 
-      - name: 🏗️ Build APK (${{ inputs.build_mode || 'release' }})
-        run: flutter build apk --${{ inputs.build_mode || 'release' }} --split-per-abi
-
-      - name: 📤 Upload APKs (artifact)
+      - name: 📤 Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: network-guard-apks-${{ inputs.build_mode || 'release' }}
+          name: network-guard-apks
           path: |
             build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
           retention-days: 30
-
-      - name: 📋 List outputs
-        run: ls -lh build/app/outputs/flutter-apk/
