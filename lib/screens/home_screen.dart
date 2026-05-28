@@ -245,7 +245,19 @@ class _RuleCard extends StatelessWidget {
                 ),
                 Switch(
                   value: rule.enabled,
-                  onChanged: (_) => provider.toggleEnabled(rule),
+                  onChanged: (_) async {
+                    // 关闭活跃规则需要 PIN 验证
+                    if (rule.enabled && isActive && await PinService.hasPin()) {
+                      if (!context.mounted) return;
+                      final ok = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PinScreen()),
+                      );
+                      if (ok != true) return;
+                    }
+                    if (!context.mounted) return;
+                    provider.toggleEnabled(rule);
+                  },
                 ),
                 PopupMenuButton<String>(
                   itemBuilder: (_) => [
