@@ -31,18 +31,18 @@ jobs:
       - name: 📦 Install dependencies
         run: flutter pub get
 
-      - name: 🔨 Build APK
-        run: flutter build apk --debug
+      - name: 🔨 Build APK (split ABI)
+        run: flutter build apk --debug --split-per-abi
 
-      - name: 📤 Upload APK
+      - name: 📤 Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: network-guard-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
 
       - name: 📦 Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: build/app/outputs/flutter-apk/app-debug.apk
+          files: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
