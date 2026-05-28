@@ -1,0 +1,76 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter analyze
+
+## exception
+
+_Exception: Exception: analysis server exited with code -9 and output:
+[stdout] {"event":"server.connected","params":{"version":"1.38.0","pid":647549}}
+[stdout] {"id":"1"}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/android/app/src/main/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/android/app/src/profile/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/android/app/src/debug/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/pubspec.yaml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/analysis_options.yaml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/build/path_provider_android/intermediates/merged_manifest/debug/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/build/path_provider_android/intermediates/aapt_friendly_merged_manifests/debug/aapt/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/build/sqflite_android/intermediates/merged_manifest/debug/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/build/sqflite_android/intermediates/aapt_friendly_merged_manifests/debug/aapt/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/build/flutter_local_notifications/intermediates/merged_manifest/debug/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/build/flutter_local_notifications/intermediates/aapt_friendly_merged_manifests/debug/aapt/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/build/package_info_plus/intermediates/merged_manifest/debug/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"analysis.errors","params":{"file":"/home/admin/.openclaw/workspace/network_guard_app/build/package_info_plus/intermediates/aapt_friendly_merged_manifests/debug/aapt/AndroidManifest.xml","errors":[]}}
+[stdout] {"event":"server.status","params":{"analysis":{"isAnalyzing":true}}}
+
+```
+```
+
+## flutter doctor
+
+```
+[✓] Flutter (Channel stable, 3.27.4, on Alibaba Cloud Linux 3.2104 U13 (OpenAnolis Edition) 5.10.134-19.3.al8.x86_64, locale en_US.UTF-8)
+    • Flutter version 3.27.4 on channel stable at /opt/flutter
+    • Upstream repository https://github.com/flutter/flutter.git
+    • Framework revision d8a9f9a52e (1 year, 4 months ago), 2025-01-31 16:07:18 -0500
+    • Engine revision 82bd5b7209
+    • Dart version 3.6.2
+    • DevTools version 2.40.3
+
+[✓] Android toolchain - develop for Android devices (Android SDK version 34.0.0)
+    • Android SDK at /opt/android-sdk
+    • Platform android-35, build-tools 34.0.0
+    • ANDROID_HOME = /opt/android-sdk
+    • ANDROID_SDK_ROOT = /opt/android-sdk
+    • Java binary at: /usr/bin/java
+    • Java version OpenJDK Runtime Environment (Red_Hat-17.0.19.0.10-1) (build 17.0.19+10-LTS)
+    • All Android licenses accepted.
+
+[✓] Chrome - develop for the web
+    • Chrome at google-chrome
+
+[✗] Linux toolchain - develop for Linux desktop
+    ✗ clang++ is required for Linux development.
+      It is likely available from your distribution (e.g.: apt install clang), or can be downloaded from https://releases.llvm.org/
+    • cmake version 3.26.5
+    ✗ ninja is required for Linux development.
+      It is likely available from your distribution (e.g.: apt install ninja-build), or can be downloaded from https://github.com/ninja-build/ninja/releases
+    • pkg-config version 1.4.2
+    ✗ GTK 3.0 development libraries are required for Linux development.
+      They are likely available from your distribution (e.g.: apt install libgtk-3-dev)
+
+[!] Android Studio (not installed)
+    • Android Studio not found; download from https://developer.android.com/studio/index.html
+      (or visit https://flutter.dev/to/linux-android-setup for detailed instructions).
+
+[✓] Connected device (2 available)
+    • Linux (desktop) • linux  • linux-x64      • Alibaba Cloud Linux 3.2104 U13 (OpenAnolis Edition) 5.10.134-19.3.al8.x86_64
+    • Chrome (web)    • chrome • web-javascript • Google Chrome 147.0.7727.55
+
+[✓] Network resources
+    • All expected network resources are available.
+
+! Doctor found issues in 2 categories.
+```

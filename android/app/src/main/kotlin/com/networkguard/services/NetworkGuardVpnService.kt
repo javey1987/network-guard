@@ -44,6 +44,11 @@ class NetworkGuardVpnService : android.net.VpnService() {
     @Volatile
     private var cachedBlockMobile: Boolean = true
 
+    // 保存 VPN 虚拟网卡接口引用，停止时必须显式关闭才能让系统回收 VPN 连接
+    private var vpnInterface: ParcelFileDescriptor? = null
+    private var vpnInput: FileInputStream? = null
+    private var vpnOutput: FileOutputStream? = null
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
@@ -52,6 +57,7 @@ class NetworkGuardVpnService : android.net.VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
+                // 已运行时忽略重复的 START 指令
                 val blockWifi = intent.getBooleanExtra("blockWifi", true)
                 val blockMobile = intent.getBooleanExtra("blockMobile", true)
                 val reason = intent.getStringExtra("reason") ?: "定时断网"
@@ -106,18 +112,21 @@ class NetworkGuardVpnService : android.net.VpnService() {
         // 设置最大传输单元
         builder.setMtu(1500)
 
-        // 如果开启严格模式，阻止用户在系统设置中手动打开网络
-        // 这里通过持续运行前台服务来实现
+        // 通过前台服务阻止系统杀掉进程
         val notification = buildNotification(blockWifi, blockMobile, reason)
         startForeground(NOTIFICATION_ID, notification)
 
         try {
-            val vpnInterface = builder.establish()
-            if (vpnInterface == null) {
+            val iface = builder.establish()
+            if (iface == null) {
                 // 用户取消了 VPN 授权
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 return
             }
+
+            vpnInterface = iface
+            vpnInput = FileInputStream(iface.fileDescriptor)
+            vpnOutput = FileOutputStream(iface.fileDescriptor)
 
             isRunning = true
             // 缓存封锁配置，不再每包读 SharedPreferences
@@ -128,7 +137,7 @@ class NetworkGuardVpnService : android.net.VpnService() {
 
             // 在后台线程中处理 VPN 数据包——全部丢弃
             tunnelThread = Thread {
-                processPackets(vpnInterface)
+                processPackets(iface)
             }.apply {
                 isDaemon = true
                 start()
@@ -193,10 +202,6 @@ class NetworkGuardVpnService : android.net.VpnService() {
     /**
      * 处理 IPv4 数据包。
      * 在封锁模式下丢弃所有数据包（即不写入 output）。
-     */
-    /**
-     * 处理 IPv4 数据包。
-     * 在封锁模式下丢弃所有数据包（即不写入 output）。
      *
      * 使用 cachedBlockWifi/cachedBlockMobile 判断，
      * 避免每包读取 SharedPreferences（每包 I/O 会严重拖慢整机网络）。
@@ -216,9 +221,21 @@ class NetworkGuardVpnService : android.net.VpnService() {
 
     // ─── 停止 VPN ───────────────────────────────────────────────
     private fun stopVpnInternal() {
+        if (!isRunning && vpnInterface == null) return  // 已经停了
+
         isRunning = false
         tunnelThread?.interrupt()
         tunnelThread = null
+
+        // ★ 关键：显式关闭 VPN 虚拟网卡接口
+        // 只调 stopSelf() 不会自动回收 VPN 连接，必须关闭 ParcelFileDescriptor
+        try { vpnInput?.close() } catch (_: Exception) {}
+        vpnInput = null
+        try { vpnOutput?.close() } catch (_: Exception) {}
+        vpnOutput = null
+        try { vpnInterface?.close() } catch (_: Exception) {}
+        vpnInterface = null
+
         saveStatus("stopped")
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
