@@ -4,23 +4,27 @@ on:
   push:
     branches: [ main, master ]
     paths-ignore:
+      - '**.md'
       - 'website/**'
-      - 'README.md'
-  pull_request:
-    branches: [ main, master ]
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       build_mode:
         description: 'Build mode'
         required: true
-        default: 'release'
+        default: 'debug'
         type: choice
         options:
           - debug
           - release
 
+permissions:
+  contents: write
+
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -30,19 +34,24 @@ jobs:
       - name: 🎯 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.27.4'
           channel: 'stable'
 
       - name: 📦 Install dependencies
         run: flutter pub get
 
-      - name: 🏗️ Build APK
-        run: flutter build apk --${{ inputs.build_mode || 'release' }} --split-per-abi 2>&1
+      - name: 🔨 Build APK
+        run: flutter build apk --${{ inputs.build_mode || 'debug' }} --split-per-abi
 
       - name: 📤 Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: network-guard-apks
-          path: |
-            build/app/outputs/flutter-apk/*.apk
+          name: network-guard-apk-${{ inputs.build_mode || 'debug' }}
+          path: build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
-          retention-days: 30
+
+      - name: 📦 Create Release (tag only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
