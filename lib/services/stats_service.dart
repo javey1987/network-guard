@@ -16,7 +16,7 @@ class StatsService {
         'endTime': endTimeMs,
       });
       if (result == null) return [];
-      return result.cast<Map<String, dynamic>>();
+      return result.map((m) => Map<String, dynamic>.from(m as Map)).toList();
     } on PlatformException {
       return [];
     }
@@ -45,7 +45,7 @@ class StatsService {
     try {
       final result = await _channel.invokeMethod<List<dynamic>>('getInstalledApps');
       if (result == null) return [];
-      return result.cast<Map<String, dynamic>>().toList();
+      return result.map((m) => Map<String, dynamic>.from(m as Map)).toList();
     } on PlatformException catch (e) {
       print('getInstalledApps error: ${e.message}');
       return [];
