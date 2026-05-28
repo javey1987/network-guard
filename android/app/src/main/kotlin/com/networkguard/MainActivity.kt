@@ -224,46 +224,26 @@ class MainActivity : FlutterActivity() {
                         "getInstalledApps" -> {
                             try {
                                 val pm = packageManager
-                                // 用 getInstalledApplications（兼容 compileSdk 35）
-                                @Suppress("DEPRECATION")
-                                val allApps = pm.getInstalledApplications(0)
-                                val list = mutableListOf<Map<String, String>>()
-                                for (app in allApps) {
-                                    try {
-                                        if (app.packageName == packageName) continue
-                                        val appName = pm.getApplicationLabel(app).toString()
-                                        if (appName.isNotBlank()) {
-                                            list.add(mapOf(
-                                                "packageName" to app.packageName,
-                                                "appName" to appName
-                                            ))
-                                        }
-                                    } catch (_: Exception) { }
-                                }
-                                result.success(list.sortedBy { it["appName"] })
-                            } catch (e: Exception) {
-                                // 降级：getInstalledApplications with ApplicationInfoFlags
-                                try {
-                                    val pm = packageManager
-                                    val allApps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
-                                    } else {
-                                        @Suppress("DEPRECATION")
-                                        pm.getInstalledApplications(0)
+                                // 获取所有已安装应用（排除自己 + 禁用应用）
+                                // 不用 getLaunchIntentForPackage 过滤（Android 11+ 可见性限制）
+                                val allApps = pm.getInstalledApplications(
+                                    PackageManager.GET_META_DATA or PackageManager.MATCH_UNINSTALLED_PACKAGES
+                                )
+                                val list = allApps
+                                    .filter { app ->
+                                        app.packageName != packageName && app.enabled
                                     }
-                                    val list = allApps.filter { app ->
-                                        app.packageName != packageName
-                                    }.map { app ->
+                                    .map { app ->
                                         mapOf(
                                             "packageName" to app.packageName,
                                             "appName" to pm.getApplicationLabel(app).toString()
                                         )
-                                    }.filter { (it["appName"] as String).isNotBlank() }
-                                     .sortedBy { it["appName"] as String }
-                                    result.success(list)
-                                } catch (e2: Exception) {
-                                    result.error("GET_APPS_ERROR", e2.message, null)
-                                }
+                                    }
+                                    .filter { (it["appName"] as? String)?.isNotBlank() == true }
+                                    .sortedBy { it["appName"] as String }
+                                result.success(list)
+                            } catch (e: Exception) {
+                                result.error("GET_APPS_ERROR", e.message, null)
                             }
                         }
                         else -> result.notImplemented()
