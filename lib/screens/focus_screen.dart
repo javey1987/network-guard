@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/schedule_rule.dart';
 import '../providers/schedule_provider.dart';
 import '../services/lock_task_service.dart';
 
