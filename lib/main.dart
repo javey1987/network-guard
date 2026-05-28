@@ -73,6 +73,8 @@ class NetworkGuardApp extends StatelessWidget {
 }
 
 /// 应用外壳：负责管理定时检查的生命周期 + 严格模式导航
+///
+/// Provider 的 listen: false 调用只用于初始化，状态监听通过 Consumer 完成。
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -87,6 +89,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // 页面启动时开始定时检查（只执行一次）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<ScheduleProvider>().startPeriodicCheck();
+      }
+    });
   }
 
   @override
@@ -115,7 +124,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           fullscreenDialog: true,
         ),
       ).then((_) {
-        // 从专注屏返回后重置状态
         _focusScreenShown = false;
       });
     }
@@ -123,17 +131,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // 严格模式监听：Consumer 会在 provider 变化时自动触发
+    // Consumer 监听 ScheduleProvider 的任何变化
     return Consumer<ScheduleProvider>(
       builder: (context, provider, _) {
-        // 触发严格模式检查
+        // 在每一帧结束后检查是否需要弹出专注屏
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _checkStrictMode(provider);
-        });
-
-        // 页面启动时开始定时检查
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          provider.startPeriodicCheck();
         });
 
         return const HomeScreen();

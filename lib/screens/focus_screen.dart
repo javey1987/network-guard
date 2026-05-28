@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/schedule_rule.dart';
 import '../providers/schedule_provider.dart';
 import '../services/lock_task_service.dart';
 
@@ -23,6 +22,7 @@ class _FocusScreenState extends State<FocusScreen>
     with TickerProviderStateMixin {
   Timer? _countdownTimer;
   Duration _timeRemaining = Duration.zero;
+  bool _autoExiting = false;
   bool _showExitChallenge = false;
   int _exitCountdown = 0;
   Timer? _exitTimer;
@@ -51,7 +51,7 @@ class _FocusScreenState extends State<FocusScreen>
     super.dispose();
   }
 
-  /// 定时刷新倒计时
+  /// 定时刷新倒计时 + 检测规则失效自动退出
   void _startCountdown() {
     _updateRemaining();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -61,21 +61,56 @@ class _FocusScreenState extends State<FocusScreen>
 
   void _updateRemaining() {
     final provider = context.read<ScheduleProvider>();
-    final now = DateTime.now();
 
+    // ★ 关键：检测严格模式是否已结束（规则失效 / 用户从外部解除了）
+    if (!provider.isNetworkBlocked || !provider.isStrictMode) {
+      _autoExit();
+      return;
+    }
+
+    final now = DateTime.now();
     // 找当前激活的规则
-    ScheduleRule? activeRule;
+    bool hasActiveRule = false;
     for (final rule in provider.rules) {
       if (rule.isActive(now)) {
-        activeRule = rule;
+        hasActiveRule = true;
+        _timeRemaining = rule.timeUntilNextChange(now);
         break;
       }
     }
 
-    if (activeRule != null) {
-      _timeRemaining = activeRule.timeUntilNextChange(now);
+    // 没有活跃规则但网络被封锁 → 手动断网模式，计算锁定的剩余时间（最多3小时）
+    if (!hasActiveRule) {
+      // 规则已失效但网络仍被封锁 → 自动退出
+      _autoExit();
+      return;
     }
+
     if (mounted) setState(() {});
+  }
+
+  /// 规则结束或网络恢复时，自动退出专注屏
+  Future<void> _autoExit() async {
+    if (_autoExiting) return;
+    _autoExiting = true;
+
+    // 停止所有计时器
+    _countdownTimer?.cancel();
+    _exitTimer?.cancel();
+
+    // 先确保 VPN 停止 + 严格模式关闭
+    final provider = context.read<ScheduleProvider>();
+    if (provider.isNetworkBlocked || provider.isStrictMode) {
+      await provider.exitStrictMode();
+    }
+
+    // 解锁屏幕固定
+    await Future.delayed(const Duration(milliseconds: 300));
+    await LockTaskService.unlock();
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   /// 尝试锁定屏幕
@@ -102,22 +137,9 @@ class _FocusScreenState extends State<FocusScreen>
     });
   }
 
-  /// 真正退出严格模式
+  /// 用户通过冷静期后，主动退出严格模式
   Future<void> _exitFocus() async {
-    _exitTimer?.cancel();
-    _countdownTimer?.cancel();
-
-    // 先解屏（停止 VPN + 解锁屏幕固定 + 关闭严格模式）
-    final provider = context.read<ScheduleProvider>();
-    await provider.exitStrictMode();
-
-    // 让系统有足够时间关闭屏幕固定
-    await Future.delayed(const Duration(milliseconds: 500));
-    await LockTaskService.unlock();
-
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
+    await _autoExit();
   }
 
   @override
@@ -225,13 +247,24 @@ class _FocusScreenState extends State<FocusScreen>
                   const SizedBox(height: 16),
 
                   // 倒计时说明
-                  Text(
-                    '倒计时结束后自动恢复网络',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withOpacity(0.4),
+                  if (!_autoExiting)
+                    Text(
+                      _timeRemaining.inSeconds > 0
+                          ? '倒计时结束后自动恢复网络'
+                          : '专注即将结束…',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withOpacity(0.4),
+                      ),
+                    )
+                  else
+                    const SizedBox(
+                      width: 24, height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
+                      ),
                     ),
-                  ),
 
                   const Spacer(flex: 2),
 
