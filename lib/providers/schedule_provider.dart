@@ -4,15 +4,18 @@ import '../models/schedule_rule.dart';
 import '../services/database_service.dart';
 import '../services/vpn_service.dart';
 import '../services/notification_service.dart';
+import '../services/lock_task_service.dart';
 
 class ScheduleProvider extends ChangeNotifier {
   List<ScheduleRule> _rules = [];
   bool _isNetworkBlocked = false;
+  bool _isStrictMode = false;
   String _activeRule = '';
   Timer? _checkTimer;
 
   List<ScheduleRule> get rules => List.unmodifiable(_rules);
   bool get isNetworkBlocked => _isNetworkBlocked;
+  bool get isStrictMode => _isStrictMode;
   String get activeRuleName => _activeRule;
 
   ScheduleProvider() {
@@ -20,6 +23,11 @@ class ScheduleProvider extends ChangeNotifier {
     VpnService.setOnVpnAuthorizedCallback(() {
       _isNetworkBlocked = true;
       _activeRule = '手动';
+      notifyListeners();
+    });
+
+    // 监听设备管理员状态变化
+    LockTaskService.setOnDeviceAdminChangedCallback(() {
       notifyListeners();
     });
   }
@@ -63,7 +71,7 @@ class ScheduleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 启动定时检查（每秒一次）
+  /// 启动定时检查（每 30 秒一次）
   void startPeriodicCheck() {
     _checkTimer?.cancel();
     _checkTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -93,6 +101,7 @@ class ScheduleProvider extends ChangeNotifier {
     if (activeRule != null && !_isNetworkBlocked) {
       // 需要封锁
       _isNetworkBlocked = true;
+      _isStrictMode = activeRule.strictMode;
       _activeRule = activeRule.name;
       notifyListeners();
       await VpnService.startVpn(
@@ -104,6 +113,7 @@ class ScheduleProvider extends ChangeNotifier {
     } else if (activeRule == null && _isNetworkBlocked) {
       // 需要解锁
       _isNetworkBlocked = false;
+      _isStrictMode = false;
       _activeRule = '';
       notifyListeners();
       await VpnService.stopVpn();
@@ -111,6 +121,7 @@ class ScheduleProvider extends ChangeNotifier {
     } else if (activeRule != null && _isNetworkBlocked && activeRule.name != _activeRule) {
       // 切换到另一条规则
       _activeRule = activeRule.name;
+      _isStrictMode = activeRule.strictMode;
       notifyListeners();
     }
   }
@@ -121,6 +132,7 @@ class ScheduleProvider extends ChangeNotifier {
     if (_isNetworkBlocked) {
       await VpnService.stopVpn();
       _isNetworkBlocked = false;
+      _isStrictMode = false;
       _activeRule = '';
       notifyListeners();
       return false;
@@ -136,9 +148,22 @@ class ScheduleProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        // VPN 未授权，静默失败（系统会弹出授权框）
         return null;
       }
+    }
+  }
+
+  /// 从严格模式退出（由 FocusScreen 调用）
+  Future<void> exitStrictMode() async {
+    _isStrictMode = false;
+    if (_isNetworkBlocked) {
+      _isNetworkBlocked = false;
+      _activeRule = '';
+      notifyListeners();
+      await VpnService.stopVpn();
+      await NotificationService.showBlockEnded(_activeRule);
+    } else {
+      notifyListeners();
     }
   }
 

@@ -6,6 +6,7 @@ import 'providers/schedule_provider.dart';
 import 'services/vpn_service.dart';
 import 'services/notification_service.dart';
 import 'screens/home_screen.dart';
+import 'screens/focus_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,7 +72,7 @@ class NetworkGuardApp extends StatelessWidget {
   }
 }
 
-/// 应用外壳：负责管理定时检查的生命周期
+/// 应用外壳：负责管理定时检查的生命周期 + 严格模式导航
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -80,6 +81,8 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
+  bool _focusScreenShown = false;
+
   @override
   void initState() {
     super.initState();
@@ -102,13 +105,39 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
+  /// 监听严格模式状态变化：激活时自动跳转专注屏
+  void _checkStrictMode(ScheduleProvider provider) {
+    if (provider.isStrictMode && !_focusScreenShown && mounted) {
+      _focusScreenShown = true;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const FocusScreen(),
+          fullscreenDialog: true,
+        ),
+      ).then((_) {
+        // 从专注屏返回后重置状态
+        _focusScreenShown = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 页面启动时开始定时检查
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ScheduleProvider>().startPeriodicCheck();
-    });
+    // 严格模式监听：Consumer 会在 provider 变化时自动触发
+    return Consumer<ScheduleProvider>(
+      builder: (context, provider, _) {
+        // 触发严格模式检查
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _checkStrictMode(provider);
+        });
 
-    return const HomeScreen();
+        // 页面启动时开始定时检查
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          provider.startPeriodicCheck();
+        });
+
+        return const HomeScreen();
+      },
+    );
   }
 }
