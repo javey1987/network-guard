@@ -27,12 +27,14 @@ class VpnService {
     required bool blockWifi,
     required bool blockMobile,
     required String reason,
+    List<String> allowedApps = const [],
   }) async {
     try {
       final result = await _channel.invokeMethod<bool>('startVpn', {
         'blockWifi': blockWifi,
         'blockMobile': blockMobile,
         'reason': reason,
+        'allowedApps': allowedApps,
       });
       return result ?? false;
     } on PlatformException catch (e) {

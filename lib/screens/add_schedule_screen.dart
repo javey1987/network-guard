@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/schedule_rule.dart';
 import '../providers/schedule_provider.dart';
+import '../services/pin_service.dart';
+import 'pin_screen.dart';
+import 'app_picker_screen.dart';
 
 class AddScheduleScreen extends StatefulWidget {
   final ScheduleRule? editRule;
@@ -22,6 +25,7 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
   late bool _blockMobile;
   late bool _strictMode;
   late bool _enabled;
+  late List<String> _allowedApps;
 
   bool get _isEditing => widget.editRule != null;
 
@@ -38,6 +42,7 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
     _blockMobile = r?.blockMobile ?? true;
     _strictMode = r?.strictMode ?? false;
     _enabled = r?.enabled ?? true;
+    _allowedApps = r?.allowedApps.toList() ?? [];
   }
 
   @override
@@ -159,11 +164,75 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
                 ),
               const SizedBox(height: 16),
 
+              // ★ 应用白名单（家长版）
+              const Text('白名单', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              const Text(
+                '断网期间仍可使用的应用',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () async {
+                  final result = await Navigator.push<List<String>>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AppPickerScreen(selectedPackages: _allowedApps),
+                    ),
+                  );
+                  if (result != null) {
+                    setState(() => _allowedApps = result);
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.phone_android, color: Colors.grey),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _allowedApps.isEmpty
+                                  ? '未选择（全部封锁）'
+                                  : '已选择 ${_allowedApps.length} 个应用',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: _allowedApps.isEmpty ? Colors.grey[500] : null,
+                              ),
+                            ),
+                            if (_allowedApps.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                _allowedApps.take(3).join(', '),
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
               // 严格模式
               SwitchListTile(
                 title: const Text('严格模式'),
                 subtitle: const Text(
-                  '开启后无法手动恢复网络\n（需通过验证或等待定时结束）',
+                  '开启后无法手动恢复网络（需通过验证或等待定时结束）',
                 ),
                 value: _strictMode,
                 onChanged: (v) => setState(() => _strictMode = v),
@@ -216,7 +285,17 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    // 如果已设置 PIN，提交前验证
+    if (await PinService.hasPin()) {
+      if (!mounted) return;
+      final ok = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => const PinScreen()),
+      );
+      if (ok != true) return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
 
@@ -246,6 +325,7 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
       blockWifi: _blockWifi,
       blockMobile: _blockMobile,
       strictMode: _strictMode,
+      allowedApps: _allowedApps,
     );
 
     final provider = context.read<ScheduleProvider>();
@@ -255,7 +335,7 @@ class _AddScheduleScreenState extends State<AddScheduleScreen> {
       provider.addRule(rule);
     }
 
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 }
 

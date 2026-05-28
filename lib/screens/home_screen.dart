@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../providers/schedule_provider.dart';
 import '../models/schedule_rule.dart';
+import '../services/pin_service.dart';
 import 'add_schedule_screen.dart';
+import 'admin_settings.dart';
+import 'pin_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -15,7 +17,15 @@ class HomeScreen extends StatelessWidget {
         title: const Text('定时断网助手'),
         centerTitle: true,
         actions: [
-          // 手动开关（测试用）
+          // 管理员设置入口
+          Consumer<ScheduleProvider>(
+            builder: (_, provider, __) => IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: '管理员设置',
+              onPressed: () => _onAdminSettings(context),
+            ),
+          ),
+          // 手动开关
           Consumer<ScheduleProvider>(
             builder: (_, provider, __) => IconButton(
               icon: Icon(
@@ -25,16 +35,13 @@ class HomeScreen extends StatelessWidget {
               tooltip: provider.isNetworkBlocked ? '恢复网络' : '手动断网',
               onPressed: () async {
                 final result = await provider.manualToggle();
-                if (result == null) {
-                  // VPN 需要授权，系统应该弹出了授权框
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('请在系统弹窗中允许 VPN 连接'),
-                        duration: Duration(seconds: 3),
-                      ),
-                    );
-                  }
+                if (result == null && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('请在系统弹窗中允许 VPN 连接'),
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
                 }
               },
             ),
@@ -69,9 +76,25 @@ class HomeScreen extends StatelessWidget {
       MaterialPageRoute(builder: (_) => const AddScheduleScreen()),
     );
   }
+
+  void _onAdminSettings(BuildContext context) async {
+    // 如果有 PIN 先验证
+    if (await PinService.hasPin()) {
+      if (!context.mounted) return;
+      final ok = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => const PinScreen()),
+      );
+      if (ok != true) return;
+    }
+    if (!context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AdminSettingsScreen()),
+    );
+  }
 }
 
-/// 顶部状态横幅
 class _StatusBanner extends StatelessWidget {
   final ScheduleProvider provider;
   const _StatusBanner({required this.provider});
@@ -105,9 +128,7 @@ class _StatusBanner extends StatelessWidget {
           Text(
             isBlocked ? '🚫 网络已封锁' : '✅ 网络正常',
             style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+              fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white,
             ),
           ),
           if (isBlocked) ...[
@@ -137,7 +158,6 @@ class _StatusBanner extends StatelessWidget {
   }
 }
 
-/// 空状态
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -147,22 +167,17 @@ class _EmptyState extends StatelessWidget {
         children: [
           Icon(Icons.schedule, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text(
-            '还没有定时断网规则',
-            style: TextStyle(fontSize: 18, color: Colors.grey[500]),
-          ),
+          Text('还没有定时断网规则',
+              style: TextStyle(fontSize: 18, color: Colors.grey[500])),
           const SizedBox(height: 8),
-          Text(
-            '点击下方按钮添加你的第一条规则',
-            style: TextStyle(fontSize: 14, color: Colors.grey[400]),
-          ),
+          Text('点击下方按钮添加你的第一条规则',
+              style: TextStyle(fontSize: 14, color: Colors.grey[400])),
         ],
       ),
     );
   }
 }
 
-/// 规则列表
 class _RuleList extends StatelessWidget {
   final ScheduleProvider provider;
   const _RuleList({required this.provider});
@@ -189,11 +204,7 @@ class _RuleCard extends StatelessWidget {
   final bool isActive;
   final ScheduleProvider provider;
 
-  const _RuleCard({
-    required this.rule,
-    required this.isActive,
-    required this.provider,
-  });
+  const _RuleCard({required this.rule, required this.isActive, required this.provider});
 
   @override
   Widget build(BuildContext context) {
@@ -217,8 +228,7 @@ class _RuleCard extends StatelessWidget {
                   child: Text(
                     rule.name,
                     style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 16, fontWeight: FontWeight.w600,
                       color: isActive ? Colors.orange : null,
                     ),
                   ),
@@ -232,7 +242,17 @@ class _RuleCard extends StatelessWidget {
                     const PopupMenuItem(value: 'edit', child: Text('编辑')),
                     const PopupMenuItem(value: 'delete', child: Text('删除', style: TextStyle(color: Colors.red))),
                   ],
-                  onSelected: (value) {
+                  onSelected: (value) async {
+                    // 有 PIN 时先验证
+                    if (await PinService.hasPin()) {
+                      if (!context.mounted) return;
+                      final ok = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PinScreen()),
+                      );
+                      if (ok != true) return;
+                    }
+                    if (!context.mounted) return;
                     if (value == 'edit') {
                       Navigator.push(
                         context,
@@ -273,22 +293,19 @@ class _RuleCard extends StatelessWidget {
                 children: [
                   Icon(Icons.date_range, size: 16, color: Colors.grey[500]),
                   const SizedBox(width: 4),
-                  Text(
-                    _weekdayText(rule.repeatDays),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
+                  Text(_weekdayText(rule.repeatDays),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                 ],
               ),
             ],
             const SizedBox(height: 4),
             Row(
               children: [
-                if (rule.blockWifi)
-                  _Tag(label: 'WiFi', color: Colors.blue),
-                if (rule.blockMobile)
-                  _Tag(label: '移动网络', color: Colors.green),
-                if (rule.strictMode)
-                  _Tag(label: '严格模式', color: Colors.red),
+                if (rule.blockWifi) _Tag(label: 'WiFi', color: Colors.blue),
+                if (rule.blockMobile) _Tag(label: '移动网络', color: Colors.green),
+                if (rule.strictMode) _Tag(label: '严格模式', color: Colors.red),
+                if (rule.hasAllowedApps)
+                  _Tag(label: '白名单 ${rule.allowedApps.length}', color: Colors.purple),
               ],
             ),
           ],

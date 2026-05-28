@@ -19,27 +19,22 @@ class ScheduleProvider extends ChangeNotifier {
   String get activeRuleName => _activeRule;
 
   ScheduleProvider() {
-    // 监听 Native 端 VPN 授权成功的回调
     VpnService.setOnVpnAuthorizedCallback(() {
       _isNetworkBlocked = true;
       _activeRule = '手动';
       notifyListeners();
     });
-
-    // 监听设备管理员状态变化
     LockTaskService.setOnDeviceAdminChangedCallback(() {
       notifyListeners();
     });
   }
 
-  /// 加载所有规则
   Future<void> loadRules() async {
     _rules = await DatabaseService.getAll();
     _checkAndApply();
     notifyListeners();
   }
 
-  /// 添加规则
   Future<void> addRule(ScheduleRule rule) async {
     final id = await DatabaseService.insert(rule);
     _rules.add(rule.copyWith(id: id));
@@ -48,7 +43,6 @@ class ScheduleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 更新规则
   Future<void> updateRule(ScheduleRule rule) async {
     await DatabaseService.update(rule);
     final idx = _rules.indexWhere((r) => r.id == rule.id);
@@ -57,13 +51,11 @@ class ScheduleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 切换启用状态
   Future<void> toggleEnabled(ScheduleRule rule) async {
     final updated = rule.copyWith(enabled: !rule.enabled);
     await updateRule(updated);
   }
 
-  /// 删除规则
   Future<void> deleteRule(int id) async {
     await DatabaseService.delete(id);
     _rules.removeWhere((r) => r.id == id);
@@ -71,7 +63,6 @@ class ScheduleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 启动定时检查（每 30 秒一次）
   void startPeriodicCheck() {
     _checkTimer?.cancel();
     _checkTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -79,17 +70,13 @@ class ScheduleProvider extends ChangeNotifier {
     });
   }
 
-  /// 停止定时检查
   void stopPeriodicCheck() {
     _checkTimer?.cancel();
     _checkTimer = null;
   }
 
-  /// 检查并应用规则
   Future<void> _checkAndApply() async {
     final now = DateTime.now();
-
-    // 找当前激活的规则
     ScheduleRule? activeRule;
     for (final rule in _rules) {
       if (rule.isActive(now)) {
@@ -99,7 +86,6 @@ class ScheduleProvider extends ChangeNotifier {
     }
 
     if (activeRule != null && !_isNetworkBlocked) {
-      // 需要封锁
       _isNetworkBlocked = true;
       _isStrictMode = activeRule.strictMode;
       _activeRule = activeRule.name;
@@ -108,10 +94,10 @@ class ScheduleProvider extends ChangeNotifier {
         blockWifi: activeRule.blockWifi,
         blockMobile: activeRule.blockMobile,
         reason: activeRule.name,
+        allowedApps: activeRule.allowedApps,
       );
       await NotificationService.showBlockStarted(activeRule.name);
     } else if (activeRule == null && _isNetworkBlocked) {
-      // 需要解锁
       _isNetworkBlocked = false;
       _isStrictMode = false;
       _activeRule = '';
@@ -119,15 +105,12 @@ class ScheduleProvider extends ChangeNotifier {
       await VpnService.stopVpn();
       await NotificationService.showBlockEnded(_activeRule);
     } else if (activeRule != null && _isNetworkBlocked && activeRule.name != _activeRule) {
-      // 切换到另一条规则
       _activeRule = activeRule.name;
       _isStrictMode = activeRule.strictMode;
       notifyListeners();
     }
   }
 
-  /// 手动切换封锁状态（测试用）
-  /// 返回 true=已封锁, false=未封锁, null=需要授权
   Future<bool?> manualToggle() async {
     if (_isNetworkBlocked) {
       await VpnService.stopVpn();
@@ -153,7 +136,6 @@ class ScheduleProvider extends ChangeNotifier {
     }
   }
 
-  /// 从严格模式退出（由 FocusScreen 调用）
   Future<void> exitStrictMode() async {
     _isStrictMode = false;
     if (_isNetworkBlocked) {
@@ -167,12 +149,21 @@ class ScheduleProvider extends ChangeNotifier {
     }
   }
 
-  /// 获取下一个活跃规则
+  /// 总断网时长统计（今日累计）
+  int _todayBlockedMinutes = 0;
+  int get todayBlockedMinutes => _todayBlockedMinutes;
+
+  void trackBlockTime() {
+    // 简单跟踪：每次检查时如果被封锁则累加 0.5 分钟
+    if (_isNetworkBlocked) {
+      _todayBlockedMinutes += 1; // 每 30 秒加 1 分钟（粗略）
+    }
+  }
+
   ScheduleRule? get nextActiveRule {
     final now = DateTime.now();
     ScheduleRule? nearest;
     int nearestMinutes = 24 * 60;
-
     for (final rule in _rules.where((r) => r.enabled)) {
       if (rule.isActive(now)) return rule;
       final until = rule.timeUntilNextChange(now);

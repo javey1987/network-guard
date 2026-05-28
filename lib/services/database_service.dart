@@ -18,7 +18,7 @@ class DatabaseService {
     final path = join(dbPath, 'network_guard.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE $_table (
@@ -33,9 +33,20 @@ class DatabaseService {
             repeatDays TEXT NOT NULL DEFAULT '',
             blockWifi INTEGER NOT NULL DEFAULT 1,
             blockMobile INTEGER NOT NULL DEFAULT 1,
-            strictMode INTEGER NOT NULL DEFAULT 0
+            strictMode INTEGER NOT NULL DEFAULT 0,
+            allowedApps TEXT NOT NULL DEFAULT ''
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // 添加 allowedApps 列（家长版白名单）
+          try {
+            await db.execute('ALTER TABLE $_table ADD COLUMN allowedApps TEXT NOT NULL DEFAULT \'\'');
+          } catch (_) {
+            // 列已存在则忽略
+          }
+        }
       },
     );
   }
