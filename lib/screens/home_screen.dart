@@ -34,6 +34,16 @@ class HomeScreen extends StatelessWidget {
               ),
               tooltip: provider.isNetworkBlocked ? '恢复网络' : '手动断网',
               onPressed: () async {
+                // 如果有 PIN 且当前网络被封锁，关闭时需要验证
+                if (provider.isNetworkBlocked && await PinService.hasPin()) {
+                  if (!context.mounted) return;
+                  final ok = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PinScreen()),
+                  );
+                  if (ok != true) return;
+                }
+                if (!context.mounted) return;
                 final result = await provider.manualToggle();
                 if (result == null && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

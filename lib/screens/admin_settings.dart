@@ -101,7 +101,29 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             title: const Text('设备管理员'),
             subtitle: Text(_isDeviceAdmin ? '已授权' : '未授权（可选）'),
             trailing: _isDeviceAdmin
-                ? const Chip(label: Text('已开启', style: TextStyle(fontSize: 11)))
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton(
+                        onPressed: () async {
+                          // 解除授权前验证 PIN
+                          if (await PinService.hasPin()) {
+                            if (!context.mounted) return;
+                            final ok = await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute(builder: (_) => const PinScreen()),
+                            );
+                            if (ok != true) return;
+                          }
+                          await LockTaskService.deactivateDeviceAdmin();
+                          await Future.delayed(const Duration(milliseconds: 500));
+                          if (mounted) _loadStatus();
+                        },
+                        child: const Text('解除授权', style: TextStyle(color: Colors.red, fontSize: 13)),
+                      ),
+                      const Chip(label: Text('已开启', style: TextStyle(fontSize: 11))),
+                    ],
+                  )
                 : TextButton(
                     onPressed: () async {
                       await LockTaskService.requestDeviceAdmin();

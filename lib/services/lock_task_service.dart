@@ -79,4 +79,14 @@ class LockTaskService {
       return false;
     }
   }
+
+  /// 取消设备管理员授权
+  static Future<bool> deactivateDeviceAdmin() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('deactivateDeviceAdmin');
+      return result ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
 }

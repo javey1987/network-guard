@@ -125,6 +125,12 @@ class MainActivity : FlutterActivity() {
                             val comp = ComponentName(this, DeviceAdminReceiver::class.java)
                             result.success(dpm.isAdminActive(comp))
                         }
+                        "deactivateDeviceAdmin" -> {
+                            val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+                            val comp = ComponentName(this, DeviceAdminReceiver::class.java)
+                            dpm.removeActiveAdmin(comp)
+                            result.success(true)
+                        }
                         else -> result.notImplemented()
                     }
                 } catch (e: Exception) {
