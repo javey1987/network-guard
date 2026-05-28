@@ -224,42 +224,43 @@ class MainActivity : FlutterActivity() {
                         "getInstalledApps" -> {
                             try {
                                 val pm = packageManager
-                                // 方式一：getInstalledPackages — 用反射兼容新旧 API
-                                // compileSdk 35 移除了 getInstalledPackages(int)
-                                val installed = pm.getInstalledPackages(
-                                    PackageManager.PackageInfoFlags.of(0)
-                                )
+                                // 用 getInstalledApplications（兼容 compileSdk 35）
+                                @Suppress("DEPRECATION")
+                                val allApps = pm.getInstalledApplications(0)
                                 val list = mutableListOf<Map<String, String>>()
-                                for (pkg in installed) {
+                                for (app in allApps) {
                                     try {
-                                        val appName = pm.getApplicationLabel(pkg.applicationInfo).toString()
-                                        if (appName.isNotBlank() && pkg.packageName != packageName) {
+                                        if (app.packageName == packageName) continue
+                                        val appName = pm.getApplicationLabel(app).toString()
+                                        if (appName.isNotBlank()) {
                                             list.add(mapOf(
-                                                "packageName" to pkg.packageName,
+                                                "packageName" to app.packageName,
                                                 "appName" to appName
                                             ))
                                         }
-                                    } catch (_: Exception) { /* 跳过不可读的应用 */ }
+                                    } catch (_: Exception) { }
                                 }
                                 result.success(list.sortedBy { it["appName"] })
                             } catch (e: Exception) {
-                                // 方式二：用 queryIntentActivities 仅获取有启动器的应用
+                                // 降级：getInstalledApplications with ApplicationInfoFlags
                                 try {
                                     val pm = packageManager
-                                    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-                                    val apps = pm.queryIntentActivities(intent, 0)
-                                    val built = apps.mapNotNull { ri ->
-                                        try {
-                                            val ai = ri.activityInfo
-                                            if (ai.packageName != packageName) {
-                                                mapOf(
-                                                    "packageName" to ai.packageName,
-                                                    "appName" to ai.loadLabel(pm).toString()
-                                                )
-                                            } else null
-                                        } catch (_: Exception) { null }
-                                    }.sortedBy { it["appName"] as String }
-                                    result.success(built)
+                                    val allApps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+                                    } else {
+                                        @Suppress("DEPRECATION")
+                                        pm.getInstalledApplications(0)
+                                    }
+                                    val list = allApps.filter { app ->
+                                        app.packageName != packageName
+                                    }.map { app ->
+                                        mapOf(
+                                            "packageName" to app.packageName,
+                                            "appName" to pm.getApplicationLabel(app).toString()
+                                        )
+                                    }.filter { (it["appName"] as String).isNotBlank() }
+                                     .sortedBy { it["appName"] as String }
+                                    result.success(list)
                                 } catch (e2: Exception) {
                                     result.error("GET_APPS_ERROR", e2.message, null)
                                 }
