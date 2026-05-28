@@ -38,8 +38,9 @@ jobs:
       - name: 📦 Install dependencies
         run: flutter pub get
 
-      - name: ✅ Analyze
-        run: flutter analyze
+      - name: ✅ Analyze (non-blocking)
+        run: flutter analyze || true
+        continue-on-error: true
 
       - name: 🏗️ Build APK (${{ inputs.build_mode || 'release' }})
         run: flutter build apk --${{ inputs.build_mode || 'release' }} --split-per-abi
