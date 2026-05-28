@@ -6,7 +6,6 @@ import 'providers/schedule_provider.dart';
 import 'services/vpn_service.dart';
 import 'services/notification_service.dart';
 import 'screens/home_screen.dart';
-import 'screens/focus_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,9 +71,7 @@ class NetworkGuardApp extends StatelessWidget {
   }
 }
 
-/// 应用外壳：负责管理定时检查的生命周期 + 严格模式导航
-///
-/// Provider 的 listen: false 调用只用于初始化，状态监听通过 Consumer 完成。
+/// 应用外壳：负责管理定时检查的生命周期
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -83,14 +80,11 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
-  bool _focusScreenShown = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // 页面启动时开始定时检查（只执行一次）
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<ScheduleProvider>().startPeriodicCheck();
@@ -114,33 +108,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
-  /// 监听严格模式状态变化：激活时自动跳转专注屏
-  void _checkStrictMode(ScheduleProvider provider) {
-    if (provider.isStrictMode && !_focusScreenShown && mounted) {
-      _focusScreenShown = true;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const FocusScreen(),
-          fullscreenDialog: true,
-        ),
-      ).then((_) {
-        _focusScreenShown = false;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Consumer 监听 ScheduleProvider 的任何变化
-    return Consumer<ScheduleProvider>(
-      builder: (context, provider, _) {
-        // 在每一帧结束后检查是否需要弹出专注屏
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _checkStrictMode(provider);
-        });
-
-        return const HomeScreen();
-      },
-    );
+    return const HomeScreen();
   }
 }
