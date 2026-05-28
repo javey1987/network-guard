@@ -15,6 +15,7 @@ class _AppPickerScreenState extends State<AppPickerScreen> {
   Set<String> _selected = {};
   bool _loading = true;
   String _search = '';
+  String? _error;
 
   @override
   void initState() {
@@ -24,12 +25,21 @@ class _AppPickerScreenState extends State<AppPickerScreen> {
   }
 
   Future<void> _loadApps() async {
-    final apps = await StatsService.getInstalledApps();
-    if (!mounted) return;
-    setState(() {
-      _apps = apps;
-      _loading = false;
-    });
+    try {
+      final apps = await StatsService.getInstalledApps();
+      if (!mounted) return;
+      setState(() {
+        _apps = apps;
+        _loading = false;
+        if (apps.isEmpty) _error = '未获取到应用列表';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = '获取失败: $e';
+      });
+    }
   }
 
   List<Map<String, dynamic>> get _filteredApps {
