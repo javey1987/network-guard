@@ -170,9 +170,9 @@ class MainActivity : FlutterActivity() {
                 try {
                     when (call.method) {
                         "queryUsageStats" -> {
-                            val args = call.arguments as Map<String, Long>
-                            val startTime = args["startTime"] ?: 0L
-                            val endTime = args["endTime"] ?: 0L
+                            val args = call.arguments as? Map<*, *>
+                            val startTime = (args?.get("startTime") as? Number)?.toLong() ?: 0L
+                            val endTime = (args?.get("endTime") as? Number)?.toLong() ?: 0L
 
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
                                 val usm = getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
@@ -189,7 +189,7 @@ class MainActivity : FlutterActivity() {
                                             "totalTimeInForeground" to stat.totalTimeInForeground
                                         )
                                     } catch (_: Exception) { null }
-                                }?.filter { it["totalTimeInForeground"] as Long > 5000 }
+                                }?.filter { (it["totalTimeInForeground"] as? Long ?: 0) > 5000 }
                                  ?.sortedByDescending { it["totalTimeInForeground"] as Long }
                                  ?.take(30)
 
@@ -205,7 +205,7 @@ class MainActivity : FlutterActivity() {
                                     UsageStatsManager.INTERVAL_DAILY,
                                     System.currentTimeMillis() - 86400000,
                                     System.currentTimeMillis())
-                                result.success(stats != null && stats.isNotEmpty())
+                                result.success(stats != null && stats.any { it.totalTimeInForeground > 0 })
                             } else {
                                 result.success(false)
                             }
@@ -216,26 +216,43 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                         }
                         "getInstalledApps" -> {
-                            val pm = packageManager
-                            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-                            val apps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                pm.queryIntentActivities(intent,
-                                    PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_ALL.toLong()))
-                            } else {
-                                @Suppress("DEPRECATION")
-                                pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-                            }
-                            val list = apps
-                                .filter { it.activityInfo.packageName != packageName }
-                                .map { resolveInfo ->
-                                    val ai = resolveInfo.activityInfo
-                                    mapOf(
-                                        "packageName" to ai.packageName,
-                                        "appName" to ai.loadLabel(pm).toString()
-                                    )
+                            try {
+                                val pm = packageManager
+                                // 用 queryIntentActivities 0 标志位获取所有启动器应用
+                                val apps = pm.queryIntentActivities(
+                                    Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
+                                    0
+                                )
+                                val list = apps
+                                    .filter { it.activityInfo.packageName != packageName }
+                                    .map { resolveInfo ->
+                                        val ai = resolveInfo.activityInfo
+                                        mapOf(
+                                            "packageName" to ai.packageName,
+                                            "appName" to ai.loadLabel(pm).toString()
+                                        )
+                                    }
+                                    .sortedBy { it["appName"] as String }
+                                result.success(list)
+                            } catch (e: Exception) {
+                                // 降级：用 packageManager.getInstalledApplications 获取
+                                try {
+                                    val pm = packageManager
+                                    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                                    val apps = pm.queryIntentActivities(intent, 0)
+                                    val list = apps.map { resolveInfo ->
+                                        val ai = resolveInfo.activityInfo
+                                        mapOf(
+                                            "packageName" to ai.packageName,
+                                            "appName" to ai.loadLabel(pm).toString()
+                                        )
+                                    }.filter { it["packageName"] != packageName }
+                                     .sortedBy { it["appName"] as String }
+                                    result.success(list)
+                                } catch (e2: Exception) {
+                                    result.error("GET_APPS_ERROR", e2.message, null)
                                 }
-                                .sortedBy { it["appName"] as String }
-                            result.success(list)
+                            }
                         }
                         else -> result.notImplemented()
                     }

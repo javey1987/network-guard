@@ -45,15 +45,9 @@ class StatsService {
     try {
       final result = await _channel.invokeMethod<List<dynamic>>('getInstalledApps');
       if (result == null) return [];
-      return result.cast<Map<String, dynamic>>().where((app) {
-        // 过滤掉系统应用
-        final pkg = (app['packageName'] as String?) ?? '';
-        return !pkg.startsWith('android.') &&
-               !pkg.startsWith('com.android.') &&
-               !pkg.startsWith('com.google.android.apps.') &&
-               pkg.isNotEmpty;
-      }).toList();
-    } on PlatformException {
+      return result.cast<Map<String, dynamic>>().toList();
+    } on PlatformException catch (e) {
+      print('getInstalledApps error: ${e.message}');
       return [];
     }
   }

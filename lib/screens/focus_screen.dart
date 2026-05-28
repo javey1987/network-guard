@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/schedule_provider.dart';
 import '../services/lock_task_service.dart';
+import '../services/pin_service.dart';
+import 'pin_screen.dart';
 
 /// 严格模式下的全屏专注界面。
 ///
@@ -139,6 +141,24 @@ class _FocusScreenState extends State<FocusScreen>
 
   /// 用户通过冷静期后，主动退出严格模式
   Future<void> _exitFocus() async {
+    // ★ 严格模式需要 PIN 验证
+    final provider = context.read<ScheduleProvider>();
+    if (provider.isStrictMode && await PinService.hasPin()) {
+      if (!mounted) return;
+      final pinOk = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => const PinScreen()),
+      );
+      if (pinOk != true) {
+        // PIN 验证失败，留在专注模式
+        setState(() {
+          _showExitChallenge = false;
+          _exitCountdown = 0;
+        });
+        return;
+      }
+    }
+    // PIN 验证通过或非严格模式，直接退出
     await _autoExit();
   }
 
