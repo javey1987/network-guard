@@ -206,12 +206,12 @@ class MainActivity : FlutterActivity() {
                         }
                         "hasUsageStatsPermission" -> {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                                val usm = getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
-                                val stats = usm.queryUsageStats(
-                                    UsageStatsManager.INTERVAL_DAILY,
-                                    System.currentTimeMillis() - 86400000,
-                                    System.currentTimeMillis())
-                                result.success(stats != null && stats.any { it.totalTimeInForeground > 0 })
+                                val appOps = getSystemService(APP_OPS_SERVICE) as android.app.AppOpsManager
+                                val mode = appOps.checkOpNoThrow(
+                                    android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                                    android.os.Process.myUid(),
+                                    packageName)
+                                result.success(mode == android.app.AppOpsManager.MODE_ALLOWED)
                             } else {
                                 result.success(false)
                             }

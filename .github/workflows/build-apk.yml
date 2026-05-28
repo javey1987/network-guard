@@ -4,18 +4,24 @@ on:
   push:
     branches: [ main, master ]
     paths-ignore:
-      - '**.md'
-      - 'ui_design.html'
-    tags:
-      - 'v*'
+      - 'website/**'
+      - 'README.md'
+      - '.github/**'
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
-
-permissions:
-  contents: write
+    inputs:
+      build_mode:
+        description: 'Build mode'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - debug
+          - release
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -27,22 +33,25 @@ jobs:
         with:
           flutter-version: '3.27.4'
           channel: 'stable'
+          cache: true
 
       - name: 📦 Install dependencies
         run: flutter pub get
 
-      - name: 🔨 Build APK (split ABI)
-        run: flutter build apk --debug --split-per-abi
+      - name: ✅ Analyze
+        run: flutter analyze
 
-      - name: 📤 Upload APKs
+      - name: 🏗️ Build APK (${{ inputs.build_mode || 'release' }})
+        run: flutter build apk --${{ inputs.build_mode || 'release' }} --split-per-abi
+
+      - name: 📤 Upload APKs (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: network-guard-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          name: network-guard-apks-${{ inputs.build_mode || 'release' }}
+          path: |
+            build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
+          retention-days: 30
 
-      - name: 📦 Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+      - name: 📋 List outputs
+        run: ls -lh build/app/outputs/flutter-apk/

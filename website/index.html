@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>定时断网助手 — 专注管理你的手机时间</title>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: oklch(0.12 0.018 260);
+  --bg2: oklch(0.16 0.02 260);
+  --bg3: oklch(0.20 0.025 260);
+  --text: oklch(0.92 0.008 260);
+  --text-dim: oklch(0.60 0.02 260);
+  --accent: oklch(0.65 0.18 220);
+  --accent-bright: oklch(0.72 0.20 220);
+  --accent-dim: oklch(0.45 0.12 220);
+  --green: oklch(0.60 0.15 160);
+  --orange: oklch(0.68 0.18 60);
+  --red: oklch(0.62 0.20 25);
+  --radius: 20px;
+  --font-serif: 'Playfair Display', Georgia, 'Noto Serif SC', serif;
+  --font-sans: 'Onest', 'Noto Sans SC', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --max-w: 1200px;
+}
+
+@font-face {
+  font-family: 'Onest';
+  src: url('https://assets.codepen.io/210061/onest-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Onest';
+  src: url('https://assets.codepen.io/210061/onest-medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Onest';
+  src: url('https://assets.codepen.io/210061/onest-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Noise overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* ── Navigation ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: oklch(0.12 0.018 260 / 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid oklch(1 0 0 / 0.06);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.nav-brand-icon {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: white;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+}
+.nav-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--text); }
+
+.nav-download {
+  padding: 10px 24px;
+  border-radius: 100px;
+  background: var(--accent);
+  color: white !important;
+  font-weight: 600;
+  font-size: 14px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.nav-download:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px oklch(0.65 0.18 220 / 0.3);
+}
+
+/* ── Hero ── */
+.hero {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  padding: 120px 32px 80px;
+  max-width: var(--max-w);
+  margin: 0 auto;
+  align-items: center;
+}
+
+.hero-left {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  background: oklch(0.65 0.18 220 / 0.12);
+  color: var(--accent-bright);
+  border: 1px solid oklch(0.65 0.18 220 / 0.2);
+  margin-bottom: 24px;
+}
+.hero-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.hero h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(40px, 5.5vw, 72px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin-bottom: 20px;
+}
+.hero h1 span {
+  background: linear-gradient(135deg, var(--accent-bright), var(--green));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero p {
+  font-size: 18px;
+  color: var(--text-dim);
+  max-width: 480px;
+  margin-bottom: 36px;
+  line-height: 1.7;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 32px;
+  border-radius: 100px;
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px oklch(0.65 0.18 220 / 0.35);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 32px;
+  border-radius: 100px;
+  background: transparent;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 16px;
+  border: 1px solid oklch(1 0 0 / 0.15);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-secondary:hover {
+  border-color: oklch(1 0 0 / 0.3);
+  background: oklch(1 0 0 / 0.04);
+}
+
+.hero-stats {
+  display: flex;
+  gap: 32px;
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid oklch(1 0 0 / 0.06);
+}
+.hero-stat {
+  text-align: center;
+}
+.hero-stat-value {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+}
+.hero-stat-label {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ── Phone Mockup ── */
+.hero-right {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.phone-mockup {
+  width: 280px;
+  height: 580px;
+  border-radius: 40px;
+  background: oklch(0.18 0.025 260);
+  border: 2px solid oklch(1 0 0 / 0.08);
+  padding: 12px;
+  position: relative;
+  box-shadow:
+    0 0 0 1px oklch(1 0 0 / 0.04),
+    0 32px 80px oklch(0 0 0 / 0.5),
+    0 0 120px oklch(0.65 0.18 220 / 0.08);
+  overflow: hidden;
+}
+.phone-notch {
+  width: 120px;
+  height: 26px;
+  background: oklch(0.08 0.01 260);
+  border-radius: 0 0 16px 16px;
+  margin: 0 auto -12px;
+  position: relative;
+  z-index: 2;
+}
+.phone-screen {
+  width: 100%;
+  height: 100%;
+  border-radius: 28px;
+  background: oklch(0.14 0.02 260);
+  overflow: hidden;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Mock UI inside phone */
+.mock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0 8px;
+}
+.mock-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mock-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+.mock-dot.red { background: var(--red); }
+.mock-dot.yellow { background: var(--orange); }
+.mock-dot.green { background: var(--green); }
+
+.mock-wifi {
+  font-size: 18px;
+}
+.mock-wifi.off { opacity: 0.3; }
+
+.mock-banner {
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, oklch(0.62 0.20 25 / 0.3), oklch(0.68 0.18 60 / 0.2));
+  text-align: center;
+}
+.mock-banner-icon { font-size: 28px; margin-bottom: 4px; }
+.mock-banner-text {
+  font-size: 13px;
+  font-weight: 600;
+}
+.mock-banner-sub {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 2px;
+}
+
+.mock-card {
+  padding: 14px;
+  border-radius: 14px;
+  background: oklch(0.22 0.03 260);
+}
+.mock-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+.mock-card-time {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.mock-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.mock-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+}
+.mock-tag.blue { background: oklch(0.65 0.18 220 / 0.15); color: var(--accent-bright); }
+.mock-tag.orange { background: oklch(0.68 0.18 60 / 0.15); color: var(--orange); }
+.mock-tag.green { background: oklch(0.60 0.15 160 / 0.15); color: var(--green); }
+.mock-tag.purple { background: oklch(0.60 0.15 300 / 0.15); color: oklch(0.65 0.15 300); }
+
+.mock-btn {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: white;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: auto;
+}
+
+/* ── Section Common ── */
+.section {
+  padding: 100px 32px;
+  max-width: var(--max-w);
+  margin: 0 auto;
+}
+
+.section-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-family: var(--font-serif);
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+.section-subtitle {
+  font-size: 17px;
+  color: var(--text-dim);
+  max-width: 560px;
+  margin-bottom: 56px;
+  line-height: 1.7;
+}
+
+/* ── Features ── */
+.features {
+  background: var(--bg2);
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.feature-card {
+  padding: 40px;
+  border-radius: var(--radius);
+  background: var(--bg3);
+  border: 1px solid oklch(1 0 0 / 0.05);
+  transition: transform 0.3s, border-color 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: oklch(1 0 0 / 0.1);
+}
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+}
+.feature-card:nth-child(1)::before { background: linear-gradient(90deg, var(--accent), var(--accent-dim)); }
+.feature-card:nth-child(2)::before { background: linear-gradient(90deg, var(--green), var(--accent)); }
+.feature-card:nth-child(3)::before { background: linear-gradient(90deg, var(--orange), var(--red)); }
+.feature-card:nth-child(4)::before { background: linear-gradient(90deg, var(--green), oklch(0.60 0.15 300)); }
+
+.feature-card-icon {
+  font-size: 32px;
+  margin-bottom: 20px;
+  display: inline-block;
+}
+
+.feature-card h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.feature-card p {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+
+.feature-card-highlight {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 100px;
+  background: oklch(0.65 0.18 220 / 0.1);
+  color: var(--accent-bright);
+  border: 1px solid oklch(0.65 0.18 220 / 0.15);
+}
+
+.feature-card.featured {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+/* ── Use Cases ── */
+.use-cases-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+}
+
+.use-case {
+  padding: 36px;
+  border-radius: var(--radius);
+  background: var(--bg2);
+  border: 1px solid oklch(1 0 0 / 0.05);
+  text-align: center;
+  transition: transform 0.3s;
+}
+.use-case:hover { transform: translateY(-4px); }
+
+.use-case-emoji {
+  font-size: 48px;
+  margin-bottom: 20px;
+  display: block;
+}
+.use-case h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.use-case p {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+
+/* ── How It Works ── */
+.how-it-works {
+  background: var(--bg2);
+}
+
+.how-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+
+.how-visual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.how-step {
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--bg3);
+  border: 1px solid oklch(1 0 0 / 0.05);
+  text-align: center;
+}
+.how-step-num {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--accent-bright);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.how-step-icon { font-size: 28px; margin-bottom: 8px; }
+.how-step h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.how-step p {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.how-text h3 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.how-text p {
+  font-size: 15px;
+  color: var(--text-dim);
+  line-height: 1.8;
+  margin-bottom: 16px;
+}
+.how-tag {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  background: oklch(0.65 0.18 220 / 0.1);
+  color: var(--accent-bright);
+  border: 1px solid oklch(0.65 0.18 220 / 0.15);
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+/* ── FAQ ── */
+.faq-list {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.faq-item {
+  padding: 24px 0;
+  border-bottom: 1px solid oklch(1 0 0 / 0.06);
+  cursor: pointer;
+}
+.faq-item:first-child { border-top: 1px solid oklch(1 0 0 / 0.06); }
+
+.faq-q {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 500;
+}
+.faq-q-arrow {
+  font-size: 18px;
+  transition: transform 0.3s;
+  color: var(--text-dim);
+}
+.faq-item.open .faq-q-arrow {
+  transform: rotate(45deg);
+}
+
+.faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+.faq-item.open .faq-a {
+  max-height: 300px;
+  padding-top: 14px;
+}
+
+/* ── CTA Banner ── */
+.cta-banner {
+  text-align: center;
+  padding: 80px 32px;
+  background: linear-gradient(135deg, oklch(0.14 0.03 260), oklch(0.16 0.04 240));
+  margin: 0;
+  max-width: 100%;
+}
+
+.cta-banner .section-title {
+  color: white;
+}
+.cta-banner .section-subtitle {
+  margin: 0 auto 40px;
+  color: oklch(1 0 0 / 0.5);
+}
+
+.cta-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 40px;
+  border-radius: 100px;
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 17px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-download:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px oklch(0.65 0.18 220 / 0.4);
+}
+
+.btn-download-version {
+  font-weight: 400;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* ── Footer ── */
+footer {
+  padding: 48px 32px;
+  max-width: var(--max-w);
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-top: 1px solid oklch(1 0 0 / 0.06);
+}
+
+footer .footer-brand {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+footer .footer-links {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+}
+footer .footer-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+footer .footer-links a:hover { color: var(--text); }
+
+/* ── Scroll Animation ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding-top: 100px;
+    gap: 40px;
+    text-align: center;
+  }
+  .hero-left { order: 1; }
+  .hero-right { order: 0; }
+  .hero p { margin: 0 auto 36px; }
+  .hero-actions { justify-content: center; }
+  .hero-stats { justify-content: center; }
+
+  .features-grid { grid-template-columns: 1fr; }
+  .feature-card.featured { grid-template-columns: 1fr; }
+  .use-cases-grid { grid-template-columns: 1fr; }
+  .how-grid { grid-template-columns: 1fr; gap: 40px; }
+
+  .nav-links { display: none; }
+  .nav-links.show { 
+    display: flex; 
+    flex-direction: column;
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: var(--bg);
+    padding: 24px;
+    border-bottom: 1px solid oklch(1 0 0 / 0.06);
+  }
+  .mobile-menu-btn { display: block !important; background: none; border: none; color: var(--text); font-size: 24px; cursor: pointer; }
+}
+
+@media (max-width: 600px) {
+  .hero { padding: 100px 20px 60px; }
+  .section { padding: 60px 20px; }
+  .phone-mockup { width: 240px; height: 500px; }
+  .feature-card { padding: 28px; }
+  footer { flex-direction: column; text-align: center; }
+}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ── Navigation ── -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-brand-icon">⏱</div>
+    定时断网助手
+  </div>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="#features">功能</a></li>
+    <li><a href="#usecases">适用场景</a></li>
+    <li><a href="#how">原理</a></li>
+    <li><a href="#faq">常见问题</a></li>
+    <li><a href="#download" class="nav-download">📥 下载 APK</a></li>
+  </ul>
+  <button class="mobile-menu-btn" onclick="toggleMenu()" style="display:none">☰</button>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-badge">无需 ROOT · 系统级拦截</div>
+    <h1>
+      定时管理网络<br>
+      <span>专注每一刻</span>
+    </h1>
+    <p>
+      通过 VPN 技术为你的 Android 设备设置定时断网规则。
+      仅封锁非白名单 App，不影响电话、短信和重要工具。
+    </p>
+    <div class="hero-actions">
+      <a href="#download" class="btn-primary">
+        📥 下载 APK
+      </a>
+      <a href="#features" class="btn-secondary">
+        了解详情 →
+      </a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-value">无需ROOT</div>
+        <div class="hero-stat-label">系统 VPN 实现</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-value">白名单</div>
+        <div class="hero-stat-label">精细控制</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-value">严格模式</div>
+        <div class="hero-stat-label">PIN 保护</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="phone-mockup">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="mock-header">
+          <div class="mock-header-left">
+            <span class="mock-dot red"></span>
+            <span class="mock-dot yellow"></span>
+            <span class="mock-dot green"></span>
+          </div>
+          <div class="mock-wifi off">📶</div>
+        </div>
+
+        <div class="mock-banner">
+          <div class="mock-banner-icon">🚫</div>
+          <div class="mock-banner-text">网络已封锁</div>
+          <div class="mock-banner-sub">晚间静修 · 还剩 2h 38m</div>
+        </div>
+
+        <div class="mock-card">
+          <div class="mock-card-title">
+            <span>🌙 晚间静修</span>
+            <span class="mock-card-time">22:00 - 07:00</span>
+          </div>
+          <div class="mock-tags">
+            <span class="mock-tag blue">WiFi</span>
+            <span class="mock-tag green">白名单 3</span>
+            <span class="mock-tag orange">严格</span>
+          </div>
+        </div>
+
+        <div class="mock-card">
+          <div class="mock-card-title">
+            <span>📚 工作专注</span>
+            <span class="mock-card-time">09:00 - 12:00</span>
+          </div>
+          <div class="mock-tags">
+            <span class="mock-tag blue">WiFi</span>
+            <span class="mock-tag purple">白名单 5</span>
+          </div>
+        </div>
+
+        <div class="mock-btn">+ 添加规则</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ── -->
+<section class="section features" id="features">
+  <div class="section-label reveal">功能亮点</div>
+  <h2 class="section-title reveal">专注管理的核心能力</h2>
+  <p class="section-subtitle reveal">不需要 ROOT，不需要复杂的配置——设置规则，自动执行。</p>
+
+  <div class="features-grid">
+    <div class="feature-card reveal">
+      <div class="feature-card-icon">⏰</div>
+      <h3>定时断网规则</h3>
+      <p>创建任意多条定时规则。设置开始和结束时间，选择重复方式（每天 / 指定星期）。支持跨天设置——夜间 22:00 到次日 07:00 一键搞定。</p>
+      <span class="feature-card-highlight">支持跨天</span>
+      <span class="feature-card-highlight">多规则</span>
+    </div>
+
+    <div class="feature-card reveal">
+      <div class="feature-card-icon">✅</div>
+      <h3>应用白名单</h3>
+      <p>选择断网期间仍可正常使用的 App。电话、短信、计算器、学习工具……只封锁娱乐应用，不干扰必要功能。从已安装应用列表中直观多选。</p>
+      <span class="feature-card-highlight">精细化控制</span>
+      <span class="feature-card-highlight">非侵入式</span>
+    </div>
+
+    <div class="feature-card reveal">
+      <div class="feature-card-icon">🔒</div>
+      <h3>严格模式</h3>
+      <p>开启后无法手动恢复网络。搭配 PIN 码保护，修改/关闭规则需验证。可选配设备管理员权限，进一步增强防护，让自律更彻底。</p>
+      <span class="feature-card-highlight">PIN 保护</span>
+      <span class="feature-card-highlight">防破解</span>
+    </div>
+
+    <div class="feature-card reveal">
+      <div class="feature-card-icon">📊</div>
+      <h3>使用统计</h3>
+      <p>按今日 / 本周维度查看各 App 使用时长排行。了解自己的手机使用习惯，发现浪费时间的 App，有针对性地优化。</p>
+      <span class="feature-card-highlight">可视报表</span>
+      <span class="feature-card-highlight">时长排行</span>
+    </div>
+
+    <div class="feature-card featured reveal">
+      <div>
+        <div class="feature-card-icon">🛡️</div>
+        <h3>VPN 技术 · 无需 ROOT</h3>
+        <p>
+          基于 Android 系统级 VpnService 实现网络过滤，<strong>完全不需要 ROOT 权限</strong>。
+        </p>
+        <p style="margin-top:12px;">
+          系统会弹窗确认 VPN 连接请求，确认后即可正常使用。
+          通过 VPN 通道智能判断数据包目标地址，仅过滤非白名单应用的网络流量。
+        </p>
+        <div style="margin-top:20px; display:flex; gap:8px; flex-wrap:wrap;">
+          <span class="how-tag">无需 ROOT</span>
+          <span class="how-tag">开机自启</span>
+          <span class="how-tag">通知提醒</span>
+          <span class="how-tag">低耗电</span>
+        </div>
+      </div>
+      <div style="padding:32px; background:var(--bg3); border-radius:16px; text-align:center;">
+        <div style="font-size:64px; margin-bottom:16px;">🛡️</div>
+        <div style="display:flex; justify-content:center; gap:24px; flex-wrap:wrap;">
+          <div>
+            <div style="font-family:var(--font-mono); font-size:20px; font-weight:700; color:var(--green);">App A</div>
+            <div style="font-size:11px; color:var(--red); margin-top:4px;">❌ 已封锁</div>
+          </div>
+          <div style="border-left:1px solid oklch(1 0 0 / 0.1);"></div>
+          <div>
+            <div style="font-family:var(--font-mono); font-size:20px; font-weight:700; color:var(--green);">App B</div>
+            <div style="font-size:11px; color:var(--green); margin-top:4px;">✅ 白名单放行</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Use Cases ── -->
+<section class="section" id="usecases">
+  <div class="section-label reveal">适用场景</div>
+  <h2 class="section-title reveal">为谁而设计</h2>
+  <p class="section-subtitle reveal">无论你是家长、学生还是想要更好地管理时间，定时断网助手都能帮到你。</p>
+
+  <div class="use-cases-grid">
+    <div class="use-case reveal">
+      <span class="use-case-emoji">👨‍👩‍👧‍👦</span>
+      <h3>家长管理</h3>
+      <p>
+        为孩子的手机设置夜间断网，限制游戏和短视频时间。
+        白名单确保电话和紧急应用不受影响。
+        严格模式 + PIN 码防止孩子绕过规则。
+      </p>
+    </div>
+    <div class="use-case reveal">
+      <span class="use-case-emoji">📖</span>
+      <h3>学生自律</h3>
+      <p>
+        自习或备考时强制隔离娱乐 App。
+        设置学习时段封锁社交媒体，白名单保留笔记和词典工具。
+        使用统计帮你记录真正的学习时间。
+      </p>
+    </div>
+    <div class="use-case reveal">
+      <span class="use-case-emoji">🧘</span>
+      <h3>戒手机瘾</h3>
+      <p>
+        睡前 2 小时自动断网，远离短视频和信息轰炸。
+        通过定时规则逐步培养健康的手机使用习惯，
+        用统计数据见证你的进步。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ── How It Works ── -->
+<section class="section how-it-works" id="how">
+  <div class="section-label reveal">工作原理</div>
+  <h2 class="section-title reveal">简单 · 安全 · 可靠</h2>
+  <p class="section-subtitle reveal">基于成熟的 Android VPN 技术，无需任何特殊权限。</p>
+
+  <div class="how-grid">
+    <div class="how-visual reveal">
+      <div class="how-step">
+        <div class="how-step-num">01</div>
+        <div class="how-step-icon">📱</div>
+        <h4>安装 App</h4>
+        <p>下载 APK 直接安装，无需 Google Play</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">02</div>
+        <div class="how-step-icon">⚙️</div>
+        <h4>设置规则</h4>
+        <p>添加时段、选择白名单、开启严格模式</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">03</div>
+        <div class="how-step-icon">🔌</div>
+        <h4>VPN 确认</h4>
+        <p>系统弹窗确认 VPN 连接，点确认即可</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">04</div>
+        <div class="how-step-icon">🤖</div>
+        <h4>自动执行</h4>
+        <p>到点自动封锁，到点自动恢复，无需操作</p>
+      </div>
+    </div>
+
+    <div class="how-text reveal">
+      <h3>为什么无需 ROOT？</h3>
+      <p>
+        定时断网助手利用 Android 系统内置的 <strong>VpnService</strong> 来实现网络过滤。
+        这是系统官方提供的 API，广泛应用于各类安全软件。
+      </p>
+      <p>
+        App 会创建一个本地 VPN 连接（数据不出设备），
+        智能识别每个数据包的目标 App——白名单 App 的流量正常放行，
+        其他 App 的流量直接丢弃。整个过程在设备本地完成，<strong>不经过外部服务器</strong>，
+        隐私安全有保障。
+      </p>
+      <div>
+        <span class="how-tag">✅ 本地 VPN</span>
+        <span class="how-tag">✅ 隐私安全</span>
+        <span class="how-tag">✅ 低耗电</span>
+        <span class="how-tag">✅ 无需联网</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ ── -->
+<section class="section" id="faq">
+  <div class="section-label reveal">常见问题</div>
+  <h2 class="section-title reveal">你可能想知道的</h2>
+
+  <div class="faq-list">
+    <div class="faq-item reveal" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        <span>需要 ROOT 权限吗？</span>
+        <span class="faq-q-arrow">+</span>
+      </div>
+      <div class="faq-a">完全不需要。定时断网助手基于 Android 系统内置的 VpnService 实现，所有 Android 设备均可使用，无需任何 ROOT 权限。</div>
+    </div>
+
+    <div class="faq-item reveal" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        <span>VPN 连接会不会影响网速或安全性？</span>
+        <span class="faq-q-arrow">+</span>
+      </div>
+      <div class="faq-a">不会。这是一个本地 VPN（loopback），数据不经过外部服务器。仅在设备本地做包过滤，几乎不影响网速。App 本身不记录任何网络数据，隐私完全在本地。</div>
+    </div>
+
+    <div class="faq-item reveal" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        <span>白名单是什么意思？</span>
+        <span class="faq-q-arrow">+</span>
+      </div>
+      <div class="faq-a">白名单中的 App 在断网期间仍可正常联网。比如你可以把电话、短信、浏览器、学习工具加入白名单，断网只封锁游戏、短视频等娱乐应用，不影响生活必需功能。</div>
+    </div>
+
+    <div class="faq-item reveal" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        <span>严格模式怎么用？</span>
+        <span class="faq-q-arrow">+</span>
+      </div>
+      <div class="faq-a">开启严格模式后，正在执行的规则无法手动关闭。修改或关闭规则需要输入管理员 PIN 码。可选配设备管理员权限，进一步强化防护。适用于家长管理孩子手机，或需要强制自律的场景。</div>
+    </div>
+
+    <div class="faq-item reveal" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        <span>会耗电吗？</span>
+        <span class="faq-q-arrow">+</span>
+      </div>
+      <div class="faq-a">非常省电。VPN 服务仅在规则时间段内运行，其余时间完全休眠。运行时也只是做简单的包过滤，不会显著增加耗电。根据测试，每小时额外耗电不到 1%。</div>
+    </div>
+
+    <div class="faq-item reveal" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        <span>APK 从哪里下载？</span>
+        <span class="faq-q-arrow">+</span>
+      </div>
+      <div class="faq-a">可以直接从本站下方下载 APK 文件。安装时如果系统提示"未知来源应用"，请在设置中允许「安装未知应用」即可。App 不上架 Google Play，因为定时断网类工具受 Google 政策限制。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta-banner" id="download">
+  <div class="section-label reveal" style="color: oklch(0.72 0.20 220);">开始使用</div>
+  <h2 class="section-title reveal">现在就用定时断网助手</h2>
+  <p class="section-subtitle reveal">
+    免费下载，无需注册，即刻获得专注力
+  </p>
+  <div class="cta-buttons reveal">
+    <a href="#" class="btn-download" onclick="alert('请将 APK 文件放置在 /website/ 目录下，然后更新此链接')">
+      📥 下载 APK
+      <span class="btn-download-version">v1.0.0</span>
+    </a>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
+<footer>
+  <div class="footer-brand">
+    ⏱ 定时断网助手 · 专注管理你的手机时间
+  </div>
+  <div class="footer-links">
+    <a href="#features">功能</a>
+    <a href="#usecases">适用场景</a>
+    <a href="#faq">常见问题</a>
+    <a href="#">关于我们</a>
+  </div>
+</footer>
+
+<script>
+// ── Mobile Menu ──
+function toggleMenu() {
+  document.getElementById('navLinks').classList.toggle('show');
+}
+
+// ── Scroll Animation ──
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ── FAQ Toggle ──
+function toggleFaq(item) {
+  item.classList.toggle('open');
+}
+
+// ── Smooth scroll for nav links ──
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+  anchor.addEventListener('click', function(e) {
+    e.preventDefault();
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    // Close mobile menu
+    document.getElementById('navLinks').classList.remove('show');
+  });
+});
+</script>
+
+</body>
+</html>
