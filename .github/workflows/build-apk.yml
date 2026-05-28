@@ -6,6 +6,8 @@ on:
     paths-ignore:
       - '**.md'
       - 'ui_design.html'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -35,3 +37,23 @@ jobs:
           name: network-guard-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+
+      - name: 📦 Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/app-debug.apk
+          generate_release_notes: false
+          make_latest: false
+          body: |
+            ## 定时断网助手 v${{ github.ref_name }}
+            
+            从 GitHub Actions 自动构建。
+            
+            ### 安装说明
+            下载 APK 后直接安装即可，首次需在系统设置中允许未知来源安装。
+            
+            ### 权限说明
+            - VPN：用于网络封锁
+            - 通知：显示断网状态
+            - 使用情况访问（可选）：查看使用统计
