@@ -10,6 +10,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Android APK
@@ -40,19 +43,6 @@ jobs:
 
       - name: 📦 Create Release
         if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ github.ref_name }}"
-          REPO="${{ github.repository }}"
-          APK="build/app/outputs/flutter-apk/app-debug.apk"
-          
-          echo "Creating release $TAG..."
-          gh release create "$TAG" \
-            --repo "$REPO" \
-            --title "定时断网助手 $TAG" \
-            --notes "从 GitHub Actions 自动构建。"
-          
-          echo "Uploading APK..."
-          gh release upload "$TAG" "$APK" \
-            --repo "$REPO" --clobber
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/app-debug.apk
