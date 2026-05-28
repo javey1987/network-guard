@@ -225,6 +225,7 @@ class MainActivity : FlutterActivity() {
                             try {
                                 val pm = packageManager
                                 // 方式一：getInstalledPackages — 最兼容的方式
+                                @Suppress("DEPRECATION")
                                 val installed = pm.getInstalledPackages(0)
                                 val list = mutableListOf<Map<String, String>>()
                                 for (pkg in installed) {
