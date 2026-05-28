@@ -224,9 +224,11 @@ class MainActivity : FlutterActivity() {
                         "getInstalledApps" -> {
                             try {
                                 val pm = packageManager
-                                // 方式一：getInstalledPackages — 最兼容的方式
-                                @Suppress("DEPRECATION")
-                                val installed = pm.getInstalledPackages(0)
+                                // 方式一：getInstalledPackages — 用反射兼容新旧 API
+                                // compileSdk 35 移除了 getInstalledPackages(int)
+                                val installed = pm.getInstalledPackages(
+                                    PackageManager.PackageInfoFlags.of(0)
+                                )
                                 val list = mutableListOf<Map<String, String>>()
                                 for (pkg in installed) {
                                     try {
