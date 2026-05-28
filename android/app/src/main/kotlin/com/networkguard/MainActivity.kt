@@ -224,46 +224,39 @@ class MainActivity : FlutterActivity() {
                         "getInstalledApps" -> {
                             try {
                                 val pm = packageManager
-                                // 方案：遍历已安装应用，逐个检查是否有启动器 Intent
-                                // 这比 queryIntentActivities 更兼容各 Android 版本和 MIUI ROM
-                                val allApps = pm.getInstalledApplications(
-                                    PackageManager.GET_META_DATA or PackageManager.MATCH_UNINSTALLED_PACKAGES
-                                )
-                                val list = allApps
-                                    .filter { app ->
-                                        app.packageName != packageName &&
-                                        app.enabled &&
-                                        pm.getLaunchIntentForPackage(app.packageName) != null
-                                    }
-                                    .map { app ->
-                                        val appName = pm.getApplicationLabel(app).toString()
-                                        mapOf(
-                                            "packageName" to app.packageName,
-                                            "appName" to appName
-                                        )
-                                    }
-                                    .filter { it["appName"] is String && (it["appName"] as String).isNotBlank() }
-                                    .sortedBy { it["appName"] as String }
-                                result.success(list)
+                                // 方式一：getInstalledPackages — 最兼容的方式
+                                val installed = pm.getInstalledPackages(0)
+                                val list = mutableListOf<Map<String, String>>()
+                                for (pkg in installed) {
+                                    try {
+                                        val appName = pm.getApplicationLabel(pkg.applicationInfo).toString()
+                                        if (appName.isNotBlank() && pkg.packageName != packageName) {
+                                            list.add(mapOf(
+                                                "packageName" to pkg.packageName,
+                                                "appName" to appName
+                                            ))
+                                        }
+                                    } catch (_: Exception) { /* 跳过不可读的应用 */ }
+                                }
+                                result.success(list.sortedBy { it["appName"] })
                             } catch (e: Exception) {
-                                // 降级方案：直接用 queryIntentActivities
+                                // 方式二：用 queryIntentActivities 仅获取有启动器的应用
                                 try {
                                     val pm = packageManager
-                                    val apps = pm.queryIntentActivities(
-                                        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
-                                        0
-                                    )
-                                    val list = apps
-                                        .filter { it.activityInfo.packageName != packageName }
-                                        .map { ri ->
+                                    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                                    val apps = pm.queryIntentActivities(intent, 0)
+                                    val built = apps.mapNotNull { ri ->
+                                        try {
                                             val ai = ri.activityInfo
-                                            mapOf(
-                                                "packageName" to ai.packageName,
-                                                "appName" to ai.loadLabel(pm).toString()
-                                            )
-                                        }
-                                        .sortedBy { it["appName"] as String }
-                                    result.success(list)
+                                            if (ai.packageName != packageName) {
+                                                mapOf(
+                                                    "packageName" to ai.packageName,
+                                                    "appName" to ai.loadLabel(pm).toString()
+                                                )
+                                            } else null
+                                        } catch (_: Exception) { null }
+                                    }.sortedBy { it["appName"] as String }
+                                    result.success(built)
                                 } catch (e2: Exception) {
                                     result.error("GET_APPS_ERROR", e2.message, null)
                                 }

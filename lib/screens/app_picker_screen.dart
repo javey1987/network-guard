@@ -81,9 +81,25 @@ class _AppPickerScreenState extends State<AppPickerScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredApps.isEmpty
                     ? Center(
-                        child: Text(
-                          _search.isEmpty ? '未获取到应用列表' : '无匹配结果',
-                          style: TextStyle(color: Colors.grey[500]),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.phone_android, size: 48, color: Colors.grey[300]),
+                            const SizedBox(height: 12),
+                            Text(
+                              _search.isEmpty
+                                  ? (_error ?? '未获取到应用列表')
+                                  : '无匹配结果',
+                              style: TextStyle(color: Colors.grey[500]),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (_error != null) ...[const SizedBox(height: 8),
+                              Text(
+                                '可能原因：系统限制应用可见性',
+                                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                              ),
+                            ],
+                          ],
                         ),
                       )
                     : ListView.builder(
