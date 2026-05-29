@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import 'providers/schedule_provider.dart';
 import 'services/vpn_service.dart';
 import 'services/notification_service.dart';
+import 'services/activation_service.dart';
 import 'screens/home_screen.dart';
+import 'screens/activation_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,16 +82,26 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
+  bool _activated = false;
+  bool _checking = true;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _checkActivation();
+  }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        context.read<ScheduleProvider>().startPeriodicCheck();
-      }
+  Future<void> _checkActivation() async {
+    final ok = await ActivationService.isActivated();
+    if (!mounted) return;
+    setState(() {
+      _activated = ok;
+      _checking = false;
     });
+    if (ok) {
+      context.read<ScheduleProvider>().startPeriodicCheck();
+    }
   }
 
   @override
@@ -110,6 +122,28 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (_checking) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在验证...'),
+            ],
+          ),
+        ),
+      );
+    }
+    if (!_activated) {
+      return ActivationScreen(
+        onActivated: () {
+          setState(() => _activated = true);
+          context.read<ScheduleProvider>().startPeriodicCheck();
+        },
+      );
+    }
     return const HomeScreen();
   }
 }
