@@ -7,28 +7,21 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
-import android.net.VpnService
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.networkguard.MainActivity
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.util.Calendar
 
 /**
  * 常驻前台调度服务。
- * 负责：
- * 1. 周期性检查规则，在正确时间启动/停止 VPN
- * 2. 即便用户滑掉 App 进程，此服务也尽力保持运行
- * 3. 通过 Handler.postDelayed 按规则时间精准调度，不依赖 AlarmManager
+ * 不直接操作 VPN，而是通过向 NetworkGuardVpnService 发送 Intent 来启停 VPN。
+ * 通过 Handler.postDelayed 定时检查规则，不依赖 AlarmManager。
  */
 class SchedulerService : Service() {
 
@@ -38,11 +31,8 @@ class SchedulerService : Service() {
         private const val CHANNEL_ID = "scheduler_channel"
         private const val PREFS_NAME = "scheduler_rules"
         private const val RULES_KEY = "rules_json"
-        private const val CHECK_INTERVAL_MS = 30_000L // 30秒兜底检查
-        private const val VPN_MINIMAL_ROUTE = "10.0.0.99"
-        private const val VPN_NOTIFICATION_ID = 9001
+        private const val CHECK_INTERVAL_MS = 30_000L // 30秒兜底
 
-        // Actions
         const val ACTION_START = "com.networkguard.SCHEDULER_START"
         const val ACTION_STOP = "com.networkguard.SCHEDULER_STOP"
 
@@ -64,9 +54,6 @@ class SchedulerService : Service() {
             context.startService(intent)
         }
 
-        /**
-         * 从 Dart 侧保存规则快照到 SharedPreferences
-         */
         fun saveRules(context: Context, rulesJson: String) {
             context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit()
@@ -78,14 +65,8 @@ class SchedulerService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val checkRunnable = Runnable { performCheck() }
-    private var vpnInterface: ParcelFileDescriptor? = null
-    private var vpnInput: FileInputStream? = null
-    private var vpnOutput: FileOutputStream? = null
-    private var isVpnActive = false
     private var currentlyBlocking = false
     private var isDestroyed = false
-
-    // ─── 生命周期 ────────────────────────────────────────────────
 
     override fun onCreate() {
         super.onCreate()
@@ -123,15 +104,12 @@ class SchedulerService : Service() {
 
     private fun performCheck() {
         if (isDestroyed) return
-
         try {
             val rules = loadRules() ?: return
             checkAndActivate(rules)
         } catch (e: Exception) {
             Log.e(TAG, "performCheck 错误: ${e.message}")
         }
-
-        // 下一次检查
         if (!isDestroyed) {
             handler.removeCallbacks(checkRunnable)
             handler.postDelayed(checkRunnable, CHECK_INTERVAL_MS)
@@ -159,11 +137,8 @@ class SchedulerService : Service() {
     private fun loadRules(): List<RuleInfo>? {
         val jsonStr = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             .getString(RULES_KEY, null) ?: return null
-
         val arr = JSONArray(jsonStr)
         val rules = mutableListOf<RuleInfo>()
-        val now = System.currentTimeMillis()
-
         for (i in 0 until arr.length()) {
             val obj = arr.getJSONObject(i)
             val id = obj.getInt("id")
@@ -177,7 +152,6 @@ class SchedulerService : Service() {
                 val arrApps = obj.getJSONArray("allowedApps")
                 (0 until arrApps.length()).map { arrApps.getString(it) }
             } catch (_: Exception) { emptyList() }
-
             rules.add(RuleInfo(id, name, startMinutes, durationMs, enabled, blockWifi, blockMobile, allowedApps))
         }
         return rules
@@ -186,23 +160,16 @@ class SchedulerService : Service() {
     private fun checkAndActivate(rules: List<RuleInfo>) {
         val now = System.currentTimeMillis()
         val nowCal = Calendar.getInstance().also { it.timeInMillis = now }
-
-        // 计算当天的分钟数
         val currentMinutes = nowCal.get(Calendar.HOUR_OF_DAY) * 60 + nowCal.get(Calendar.MINUTE)
 
-        // 寻找当前活跃的规则
         var activeRule: ActiveRule? = null
-
         for (rule in rules) {
             if (!rule.enabled) continue
-
-            // 计算规则今天的开始时间和结束时间
             val ruleStartMinutes = rule.startMinutes
             val ruleEndMinutes = (ruleStartMinutes + rule.durationMs / 60_000).toInt() % (24 * 60)
             val crossesMidnight = ruleEndMinutes < ruleStartMinutes
 
             val isActive = if (crossesMidnight) {
-                // 跨天规则：如 22:00-06:00
                 currentMinutes >= ruleStartMinutes && currentMinutes < 24 * 60 ||
                 currentMinutes >= 0 && currentMinutes < ruleEndMinutes
             } else {
@@ -217,7 +184,7 @@ class SchedulerService : Service() {
 
         if (activeRule != null) {
             if (!currentlyBlocking) {
-                Log.i(TAG, "检测到规则激活: ${activeRule.name}，启动 VPN 封锁")
+                Log.i(TAG, "检测到规则激活: ${activeRule.name}，通过 NetworkGuardVpnService 启动 VPN")
                 startVpn(activeRule)
                 currentlyBlocking = true
                 updateNotification("🌙 网络已封锁 - ${activeRule.name}", true)
@@ -232,80 +199,28 @@ class SchedulerService : Service() {
         }
     }
 
-    // ─── VPN 管理 ────────────────────────────────────────────────
+    // ─── VPN 管理（通过 NetworkGuardVpnService） ─────────────────
 
     private fun startVpn(rule: ActiveRule) {
-        try {
-            // 如果有旧 VPN，先停止
-            stopVpnInternal()
-
-            val builder = VpnService.Builder()
-                .setSession("定时断网助手")
-                .setConfigureIntent(
-                    PendingIntent.getActivity(
-                        this, 0, Intent(this, MainActivity::class.java),
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                    )
-                )
-
-            // 封锁模式：拦截所有流量
-            builder.addAddress("10.0.0.2", 32)
-            builder.addDnsServer("8.8.8.8")
-            builder.addDnsServer("1.1.1.1")
-
-            builder.addRoute("0.0.0.0", 1)
-            builder.addRoute("128.0.0.0", 1)
-            builder.addAddress("fd00:1:2:3::2", 126)
-            builder.addRoute("::", 0)
-            builder.setMtu(1500)
-
-            // 白名单应用
-            if (rule.allowedApps.isNotEmpty()) {
-                for (pkg in rule.allowedApps) {
-                    try { builder.addDisallowedApplication(pkg) } catch (_: Exception) {}
-                }
-            }
-
-            vpnInterface = builder.establish()
-            if (vpnInterface == null) {
-                Log.e(TAG, "startVpn: establish 返回 null")
-                return
-            }
-
-            vpnInput = FileInputStream(vpnInterface!!.fileDescriptor)
-            vpnOutput = FileOutputStream(vpnInterface!!.fileDescriptor)
-            isVpnActive = true
-
-            // 启动包丢弃线程（读 TUN 但丢弃，实现断网）
-            Thread {
-                val buffer = ByteArray(32767)
-                try {
-                    while (isVpnActive && !Thread.interrupted()) {
-                        val len = vpnInput?.read(buffer) ?: break
-                        if (len < 0) break
-                        // 丢弃！不写入输出，实现断网
-                    }
-                } catch (_: Exception) {}
-            }.apply { isDaemon = true; start() }
-
-        } catch (e: Exception) {
-            Log.e(TAG, "startVpn 失败: ${e.message}")
-            isVpnActive = false
+        val vpnIntent = Intent(this, NetworkGuardVpnService::class.java).apply {
+            action = NetworkGuardVpnService.ACTION_START
+            putExtra("blockWifi", rule.blockWifi)
+            putExtra("blockMobile", rule.blockMobile)
+            putExtra("reason", rule.name)
+            putStringArrayListExtra("allowedApps", ArrayList(rule.allowedApps))
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(vpnIntent)
+        } else {
+            startService(vpnIntent)
         }
     }
 
     private fun stopVpn() {
-        stopVpnInternal()
-    }
-
-    private fun stopVpnInternal() {
-        isVpnActive = false
-        try { vpnInput?.close() } catch (_: Exception) {}
-        vpnInput = null
-        try { vpnOutput?.close() } catch (_: Exception) {}
-        vpnOutput = null
-        try { vpnInterface?.close() } catch (_: Exception) {}
-        vpnInterface = null
+        val stopIntent = Intent(this, NetworkGuardVpnService::class.java).apply {
+            action = NetworkGuardVpnService.ACTION_STOP
+        }
+        startService(stopIntent)
     }
 
     // ─── 通知 ────────────────────────────────────────────────────
