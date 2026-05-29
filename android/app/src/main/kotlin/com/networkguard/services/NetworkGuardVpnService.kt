@@ -23,14 +23,19 @@ import java.nio.ByteOrder
  * 本地 VPN 服务。
  * 通过建立虚拟网卡拦截所有流量，在指定时段直接丢弃数据包实现「断网」效果。
  *
- * 家长版特性：支持应用白名单，通过 addDisallowedApplication() 让白名单应用
- * 绕过 VPN 直接上网，其他应用则被 VPN 封锁。
+ * 支持三种模式：
+ *   - ACTION_START：断网模式，拦截流量
+ *   - ACTION_MONITOR：监控模式，不拦截流量，仅保活后台进程
+ *   - ACTION_UPDATE：动态切换断网/放行（不重启 VPN）
+ *   - ACTION_STOP：停止 VPN
  */
 class NetworkGuardVpnService : android.net.VpnService() {
 
     companion object {
         const val ACTION_START = "com.networkguard.START_VPN"
         const val ACTION_STOP = "com.networkguard.STOP_VPN"
+        const val ACTION_MONITOR = "com.networkguard.MONITOR"
+        const val ACTION_UPDATE = "com.networkguard.UPDATE"
 
         const val STATUS_FILE = "vpn_status"
         const val CONFIG_FILE = "vpn_config"
@@ -43,6 +48,8 @@ class NetworkGuardVpnService : android.net.VpnService() {
     private var cachedBlockWifi: Boolean = true
     @Volatile
     private var cachedBlockMobile: Boolean = true
+    @Volatile
+    private var cachedReason: String = "后台监控"
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private var vpnInput: FileInputStream? = null
@@ -62,6 +69,22 @@ class NetworkGuardVpnService : android.net.VpnService() {
                 val allowedApps = intent.getStringArrayListExtra("allowedApps") ?: arrayListOf()
                 startVpnInternal(blockWifi, blockMobile, reason, allowedApps)
             }
+            ACTION_MONITOR -> {
+                // 监控模式：VPN 静默运行但不拦截，用于保活后台进程
+                val allowedApps = intent.getStringArrayListExtra("allowedApps") ?: arrayListOf()
+                startVpnInternal(false, false, "后台监控", allowedApps)
+            }
+            ACTION_UPDATE -> {
+                // 更新断网状态（不重启 VPN，只改标记）
+                if (isRunning) {
+                    cachedBlockWifi = intent.getBooleanExtra("blockWifi", false)
+                    cachedBlockMobile = intent.getBooleanExtra("blockMobile", false)
+                    cachedReason = intent.getStringExtra("reason") ?: "后台监控"
+                    val allowedApps = intent.getStringArrayListExtra("allowedApps") ?: arrayListOf()
+                    updateNotification(cachedBlockWifi, cachedBlockMobile, cachedReason, allowedApps)
+                    saveConfig(cachedBlockWifi, cachedBlockMobile, cachedReason, allowedApps)
+                }
+            }
             ACTION_STOP -> {
                 stopVpnInternal()
             }
@@ -75,9 +98,8 @@ class NetworkGuardVpnService : android.net.VpnService() {
     }
 
     override fun onRevoke() {
-        // 防篡改：如果 VPN 被系统撤销（孩子手动关闭），尝试立即重启
+        // 防篡改：如果 VPN 被系统撤销，尝试立即重启
         stopVpnInternal()
-        // 检查之前是否在运行状态，如果是则自动重连
         val prefs = getSharedPreferences("vpn_prefs", MODE_PRIVATE)
         val statusBefore = prefs.getString(STATUS_FILE, "stopped")
         if (statusBefore == "running") {
@@ -87,7 +109,6 @@ class NetworkGuardVpnService : android.net.VpnService() {
             val allowedApps = prefs.getString("allowedApps", "")?.split(",")
                 ?.filter { it.isNotEmpty() } ?: emptyList()
 
-            // 延迟 2 秒后自动重连
             Thread {
                 try { Thread.sleep(2000) } catch (_: InterruptedException) {}
                 startVpnInternal(blockWifi, blockMobile, "防篡改重连-$reason", allowedApps)
@@ -126,16 +147,11 @@ class NetworkGuardVpnService : android.net.VpnService() {
 
         builder.setMtu(1500)
 
-        // ★ 家长版：应用白名单
-        // 通过 addDisallowedApplication() 让白名单应用绕过 VPN -> 可以直接上网
-        // 其他应用走 VPN -> 数据包被丢弃 -> 被封锁
         if (allowedApps.isNotEmpty()) {
             for (pkg in allowedApps) {
                 try {
                     builder.addDisallowedApplication(pkg)
-                } catch (_: Exception) {
-                    // 包名不合法时跳过
-                }
+                } catch (_: Exception) {}
             }
         }
 
@@ -156,6 +172,7 @@ class NetworkGuardVpnService : android.net.VpnService() {
             isRunning = true
             cachedBlockWifi = blockWifi
             cachedBlockMobile = blockMobile
+            cachedReason = reason
             saveStatus("running")
             saveConfig(blockWifi, blockMobile, reason, allowedApps)
 
@@ -263,20 +280,34 @@ class NetworkGuardVpnService : android.net.VpnService() {
         reason: String,
         allowedApps: List<String> = emptyList()
     ): Notification {
-        val text = buildString {
-            append("「$reason」")
-            if (blockWifi) append(" · WiFi 已断")
-            if (blockMobile) append(" · 移动网络已断")
-            if (allowedApps.isNotEmpty()) append(" · ${allowedApps.size}个应用可用")
+        val title: String
+        val text: String
+        if (reason == "后台监控") {
+            title = "⏰ 定时断网运行中"
+            text = "后台守护已启动，定时规则将自动执行"
+        } else {
+            title = "🌙 网络已封锁"
+            text = buildString {
+                append("「$reason」")
+                if (blockWifi) append(" · WiFi 已断")
+                if (blockMobile) append(" · 移动网络已断")
+                if (allowedApps.isNotEmpty()) append(" · ${allowedApps.size}个应用可用")
+            }
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("🌙 网络已封锁")
+            .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setSilent(true)
             .build()
+    }
+
+    private fun updateNotification(blockWifi: Boolean, blockMobile: Boolean, reason: String, allowedApps: List<String>) {
+        val notification = buildNotification(blockWifi, blockMobile, reason, allowedApps)
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, notification)
     }
 
     // ─── 状态持久化 ─────────────────────────────────────────────

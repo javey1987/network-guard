@@ -1,10 +1,15 @@
 {
   "codes": {
     "1BC942-9E7B01-23B981-0305D6": {
-      "used": false,
-      "deviceId": null,
-      "activatedAt": null
+      "used": true,
+      "deviceId": "DG17800340252967594",
+      "activatedAt": "2026-05-29T05:53:45.859Z"
     }
   },
-  "devices": {}
+  "devices": {
+    "DG17800340252967594": {
+      "code": "1BC942-9E7B01-23B981-0305D6",
+      "activatedAt": "2026-05-29T05:53:45.859Z"
+    }
+  }
 }

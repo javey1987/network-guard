@@ -90,7 +90,8 @@ class ScheduleProvider extends ChangeNotifier {
       _isStrictMode = activeRule.strictMode;
       _activeRule = activeRule.name;
       notifyListeners();
-      await VpnService.startVpn(
+      // 监控模式下只需更新标记，VPN 服务保持运行
+      await VpnService.updateBlockState(
         blockWifi: activeRule.blockWifi,
         blockMobile: activeRule.blockMobile,
         reason: activeRule.name,
@@ -102,7 +103,12 @@ class ScheduleProvider extends ChangeNotifier {
       _isStrictMode = false;
       _activeRule = '';
       notifyListeners();
-      await VpnService.stopVpn();
+      // 恢复监控模式（不拦截流量，但保持前台服务保活）
+      await VpnService.updateBlockState(
+        blockWifi: false,
+        blockMobile: false,
+        reason: '后台监控',
+      );
       await NotificationService.showBlockEnded(_activeRule);
     } else if (activeRule != null && _isNetworkBlocked && activeRule.name != _activeRule) {
       _activeRule = activeRule.name;
@@ -113,26 +119,26 @@ class ScheduleProvider extends ChangeNotifier {
 
   Future<bool?> manualToggle() async {
     if (_isNetworkBlocked) {
-      await VpnService.stopVpn();
+      await VpnService.updateBlockState(
+        blockWifi: false,
+        blockMobile: false,
+        reason: '后台监控',
+      );
       _isNetworkBlocked = false;
       _isStrictMode = false;
       _activeRule = '';
       notifyListeners();
       return false;
     } else {
-      final started = await VpnService.startVpn(
+      await VpnService.updateBlockState(
         blockWifi: true,
         blockMobile: true,
         reason: '手动断网',
       );
-      if (started) {
-        _isNetworkBlocked = true;
-        _activeRule = '手动';
-        notifyListeners();
-        return true;
-      } else {
-        return null;
-      }
+      _isNetworkBlocked = true;
+      _activeRule = '手动';
+      notifyListeners();
+      return true;
     }
   }
 
@@ -142,7 +148,11 @@ class ScheduleProvider extends ChangeNotifier {
       _isNetworkBlocked = false;
       _activeRule = '';
       notifyListeners();
-      await VpnService.stopVpn();
+      await VpnService.updateBlockState(
+        blockWifi: false,
+        blockMobile: false,
+        reason: '后台监控',
+      );
       await NotificationService.showBlockEnded(_activeRule);
     } else {
       notifyListeners();

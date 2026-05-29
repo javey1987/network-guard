@@ -22,6 +22,17 @@ class VpnService {
     _onVpnAuthorizedCallback = callback;
   }
 
+  /// 启动后台监控 VPN（不拦截流量，保活后台进程）
+  static Future<bool> startMonitor() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('startMonitor');
+      return result ?? false;
+    } on PlatformException catch (e) {
+      print('VPN monitor start error: ${e.message}');
+      return false;
+    }
+  }
+
   /// 启动 VPN（封锁网络）
   static Future<bool> startVpn({
     required bool blockWifi,
@@ -43,7 +54,28 @@ class VpnService {
     }
   }
 
-  /// 停止 VPN（恢复网络）
+  /// 动态更新断网状态（不重启 VPN，只改标记）
+  static Future<bool> updateBlockState({
+    required bool blockWifi,
+    required bool blockMobile,
+    required String reason,
+    List<String> allowedApps = const [],
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('updateBlockState', {
+        'blockWifi': blockWifi,
+        'blockMobile': blockMobile,
+        'reason': reason,
+        'allowedApps': allowedApps,
+      });
+      return result ?? false;
+    } on PlatformException catch (e) {
+      print('VPN update error: ${e.message}');
+      return false;
+    }
+  }
+
+  /// 停止 VPN（恢复网络并停止后台监控）
   static Future<bool> stopVpn() async {
     try {
       final result = await _channel.invokeMethod<bool>('stopVpn');

@@ -138,7 +138,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     if (!_activated) {
       return ActivationScreen(
-        onActivated: () {
+        onActivated: () async {
+          // 激活后启动后台监控 VPN（不拦截流量，仅保活）
+          await VpnService.startMonitor();
           setState(() => _activated = true);
           context.read<ScheduleProvider>().startPeriodicCheck();
         },

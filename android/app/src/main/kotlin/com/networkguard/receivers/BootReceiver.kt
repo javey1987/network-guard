@@ -8,7 +8,7 @@ import com.networkguard.services.NetworkGuardVpnService
 
 /**
  * 开机启动接收器。
- * 检查是否有未完成的定时规则需要继续执行。
+ * 检查是否有未完成的定时规则需要继续执行，或恢复后台监控模式。
  */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -17,19 +17,28 @@ class BootReceiver : BroadcastReceiver() {
         val prefs = context.getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE)
         val statusBefore = prefs.getString(NetworkGuardVpnService.STATUS_FILE, "stopped")
 
-        // 如果关机前 VPN 在运行，重启时恢复
         if (statusBefore == "running") {
-            val blockWifi = prefs.getBoolean("blockWifi", true)
-            val blockMobile = prefs.getBoolean("blockMobile", true)
-            val reason = prefs.getString("reason", "定时断网") ?: "定时断网"
+            // 恢复之前的状态（可能是监控模式或断网模式）
+            val blockWifi = prefs.getBoolean("blockWifi", false)
+            val blockMobile = prefs.getBoolean("blockMobile", false)
+            val reason = prefs.getString("reason", "后台监控") ?: "后台监控"
 
-            val vpnIntent = Intent(context, NetworkGuardVpnService::class.java).apply {
-                action = NetworkGuardVpnService.ACTION_START
-                putExtra("blockWifi", blockWifi)
-                putExtra("blockMobile", blockMobile)
-                putExtra("reason", reason)
+            if (reason == "后台监控" || (!blockWifi && !blockMobile)) {
+                // 监控模式
+                val vpnIntent = Intent(context, NetworkGuardVpnService::class.java).apply {
+                    action = NetworkGuardVpnService.ACTION_MONITOR
+                }
+                context.startForegroundService(vpnIntent)
+            } else {
+                // 断网模式
+                val vpnIntent = Intent(context, NetworkGuardVpnService::class.java).apply {
+                    action = NetworkGuardVpnService.ACTION_START
+                    putExtra("blockWifi", blockWifi)
+                    putExtra("blockMobile", blockMobile)
+                    putExtra("reason", reason)
+                }
+                context.startForegroundService(vpnIntent)
             }
-            context.startForegroundService(vpnIntent)
         }
     }
 }
