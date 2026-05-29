@@ -51,41 +51,26 @@ class AlarmReceiver : BroadcastReceiver() {
         blockMobile: Boolean,
         allowedApps: java.util.ArrayList<String>
     ) {
-        val isVpnRunning = context.getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE)
-            .getString(NetworkGuardVpnService.STATUS_FILE, "stopped") == "running"
-
-        if (isVpnRunning) {
-            val vpnIntent = Intent(context, NetworkGuardVpnService::class.java).apply {
-                action = NetworkGuardVpnService.ACTION_UPDATE
-                putExtra("blockWifi", blockWifi)
-                putExtra("blockMobile", blockMobile)
-                putExtra("reason", ruleName)
-                putStringArrayListExtra("allowedApps", allowedApps)
-            }
-            context.startService(vpnIntent)
+        // 每次都全新启动 VPN（拦截模式），旧 VPN 会被 stopVpnInternal 清理
+        val vpnIntent = Intent(context, NetworkGuardVpnService::class.java).apply {
+            action = NetworkGuardVpnService.ACTION_START
+            putExtra("blockWifi", blockWifi)
+            putExtra("blockMobile", blockMobile)
+            putExtra("reason", ruleName)
+            putStringArrayListExtra("allowedApps", allowedApps)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(vpnIntent)
         } else {
-            val vpnIntent = Intent(context, NetworkGuardVpnService::class.java).apply {
-                action = NetworkGuardVpnService.ACTION_START
-                putExtra("blockWifi", blockWifi)
-                putExtra("blockMobile", blockMobile)
-                putExtra("reason", ruleName)
-                putStringArrayListExtra("allowedApps", allowedApps)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(vpnIntent)
-            } else {
-                context.startService(vpnIntent)
-            }
+            context.startService(vpnIntent)
         }
     }
 
     private fun stopBlocking(context: Context, ruleName: String) {
-        val vpnIntent = Intent(context, NetworkGuardVpnService::class.java).apply {
-            action = NetworkGuardVpnService.ACTION_UPDATE
-            putExtra("blockWifi", false)
-            putExtra("blockMobile", false)
-            putExtra("reason", "后台监控")
+        // 彻底关闭 VPN → 虚拟网卡销毁 → 手机流量恢复正常
+        val stopIntent = Intent(context, NetworkGuardVpnService::class.java).apply {
+            action = NetworkGuardVpnService.ACTION_STOP
         }
-        context.startService(vpnIntent)
+        context.startService(stopIntent)
     }
 }

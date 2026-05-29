@@ -34,8 +34,6 @@ class NetworkGuardVpnService : android.net.VpnService() {
     companion object {
         const val ACTION_START = "com.networkguard.START_VPN"
         const val ACTION_STOP = "com.networkguard.STOP_VPN"
-        const val ACTION_MONITOR = "com.networkguard.MONITOR"
-        const val ACTION_UPDATE = "com.networkguard.UPDATE"
 
         const val STATUS_FILE = "vpn_status"
         const val CONFIG_FILE = "vpn_config"
@@ -45,12 +43,9 @@ class NetworkGuardVpnService : android.net.VpnService() {
     private var tunnelThread: Thread? = null
 
     @Volatile
-    private var cachedBlockWifi: Boolean = true
+    private var cachedBlockWifi: Boolean = false
     @Volatile
-    private var cachedBlockMobile: Boolean = true
-    @Volatile
-    private var cachedReason: String = "后台监控"
-
+    private var cachedBlockMobile: Boolean = false
     private var vpnInterface: ParcelFileDescriptor? = null
     private var vpnInput: FileInputStream? = null
     private var vpnOutput: FileOutputStream? = null
@@ -68,22 +63,6 @@ class NetworkGuardVpnService : android.net.VpnService() {
                 val reason = intent.getStringExtra("reason") ?: "定时断网"
                 val allowedApps = intent.getStringArrayListExtra("allowedApps") ?: arrayListOf()
                 startVpnInternal(blockWifi, blockMobile, reason, allowedApps)
-            }
-            ACTION_MONITOR -> {
-                // 监控模式：VPN 静默运行但不拦截，用于保活后台进程
-                val allowedApps = intent.getStringArrayListExtra("allowedApps") ?: arrayListOf()
-                startVpnInternal(false, false, "后台监控", allowedApps)
-            }
-            ACTION_UPDATE -> {
-                // 更新断网状态（不重启 VPN，只改标记）
-                if (isRunning) {
-                    cachedBlockWifi = intent.getBooleanExtra("blockWifi", false)
-                    cachedBlockMobile = intent.getBooleanExtra("blockMobile", false)
-                    cachedReason = intent.getStringExtra("reason") ?: "后台监控"
-                    val allowedApps = intent.getStringArrayListExtra("allowedApps") ?: arrayListOf()
-                    updateNotification(cachedBlockWifi, cachedBlockMobile, cachedReason, allowedApps)
-                    saveConfig(cachedBlockWifi, cachedBlockMobile, cachedReason, allowedApps)
-                }
             }
             ACTION_STOP -> {
                 stopVpnInternal()
@@ -172,7 +151,6 @@ class NetworkGuardVpnService : android.net.VpnService() {
             isRunning = true
             cachedBlockWifi = blockWifi
             cachedBlockMobile = blockMobile
-            cachedReason = reason
             saveStatus("running")
             saveConfig(blockWifi, blockMobile, reason, allowedApps)
 
@@ -280,34 +258,20 @@ class NetworkGuardVpnService : android.net.VpnService() {
         reason: String,
         allowedApps: List<String> = emptyList()
     ): Notification {
-        val title: String
-        val text: String
-        if (reason == "后台监控") {
-            title = "⏰ 定时断网运行中"
-            text = "后台守护已启动，定时规则将自动执行"
-        } else {
-            title = "🌙 网络已封锁"
-            text = buildString {
-                append("「$reason」")
-                if (blockWifi) append(" · WiFi 已断")
-                if (blockMobile) append(" · 移动网络已断")
-                if (allowedApps.isNotEmpty()) append(" · ${allowedApps.size}个应用可用")
-            }
+        val text = buildString {
+            append("「$reason」")
+            if (blockWifi) append(" · WiFi 已断")
+            if (blockMobile) append(" · 移动网络已断")
+            if (allowedApps.isNotEmpty()) append(" · ${allowedApps.size}个应用可用")
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title)
+            .setContentTitle("🌙 网络已封锁")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setSilent(true)
             .build()
-    }
-
-    private fun updateNotification(blockWifi: Boolean, blockMobile: Boolean, reason: String, allowedApps: List<String>) {
-        val notification = buildNotification(blockWifi, blockMobile, reason, allowedApps)
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIFICATION_ID, notification)
     }
 
     // ─── 状态持久化 ─────────────────────────────────────────────

@@ -50,22 +50,6 @@ class MainActivity : FlutterActivity() {
         vpnChannel.setMethodCallHandler { call, result ->
             try {
                 when (call.method) {
-                    "startMonitor" -> {
-                        val prepareIntent = VpnService.prepare(this)
-                        if (prepareIntent != null) {
-                            // 需要先授权，回调后自动启动监控
-                            val sh = getSharedPreferences("vpn_prefs", MODE_PRIVATE)
-                            sh.edit().putBoolean("pending_monitor", true).apply()
-                            startActivityForResult(prepareIntent, VPN_REQUEST_CODE)
-                            result.success(false)
-                        } else {
-                            val intent = Intent(this, NetworkGuardVpnService::class.java).apply {
-                                action = NetworkGuardVpnService.ACTION_MONITOR
-                            }
-                            startForegroundService(intent)
-                            result.success(true)
-                        }
-                    }
                     "startVpn" -> {
                         val blockWifi = call.argument<Boolean>("blockWifi") ?: true
                         val blockMobile = call.argument<Boolean>("blockMobile") ?: true
@@ -87,22 +71,6 @@ class MainActivity : FlutterActivity() {
                             startForegroundService(intent)
                             result.success(true)
                         }
-                    }
-                    "updateBlockState" -> {
-                        val blockWifi = call.argument<Boolean>("blockWifi") ?: false
-                        val blockMobile = call.argument<Boolean>("blockMobile") ?: false
-                        val reason = call.argument<String>("reason") ?: "定时断网"
-                        val allowedApps = call.argument<List<String>>("allowedApps") ?: emptyList()
-
-                        val intent = Intent(this, NetworkGuardVpnService::class.java).apply {
-                            action = NetworkGuardVpnService.ACTION_UPDATE
-                            putExtra("blockWifi", blockWifi)
-                            putExtra("blockMobile", blockMobile)
-                            putExtra("reason", reason)
-                            putStringArrayListExtra("allowedApps", ArrayList(allowedApps))
-                        }
-                        startService(intent)
-                        result.success(true)
                     }
                     "stopVpn" -> {
                         val intent = Intent(this, NetworkGuardVpnService::class.java).apply {
@@ -332,24 +300,7 @@ class MainActivity : FlutterActivity() {
 
         if (requestCode == VPN_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK) {
-                val prefs = getSharedPreferences("vpn_prefs", MODE_PRIVATE)
-                // 检查是否是待处理的监控模式
-                val pendingMonitor = prefs.getBoolean("pending_monitor", false)
-                if (pendingMonitor) {
-                    prefs.edit().remove("pending_monitor").apply()
-                    val intent = Intent(this, NetworkGuardVpnService::class.java).apply {
-                        action = NetworkGuardVpnService.ACTION_MONITOR
-                    }
-                    startForegroundService(intent)
-                } else {
-                    val intent = Intent(this, NetworkGuardVpnService::class.java).apply {
-                        action = NetworkGuardVpnService.ACTION_START
-                        putExtra("blockWifi", true)
-                        putExtra("blockMobile", true)
-                        putExtra("reason", "手动断网")
-                    }
-                    startForegroundService(intent)
-                }
+                // VPN 授权成功，通知 Flutter 刷新状态
                 if (::vpnChannel.isInitialized) {
                     try { vpnChannel.invokeMethod("onVpnAuthorized", null) } catch (_: Exception) {}
                 }

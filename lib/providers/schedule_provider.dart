@@ -11,7 +11,6 @@ class ScheduleProvider extends ChangeNotifier {
   List<ScheduleRule> _rules = [];
   bool _isNetworkBlocked = false;
   bool _isStrictMode = false;
-  bool _vpnMonitorActive = false;
   String _activeRule = '';
   Timer? _checkTimer;
   /// 首次检查标记：加载后第一次 timer 触发时不执行断网，仅记录时间
@@ -20,13 +19,11 @@ class ScheduleProvider extends ChangeNotifier {
   List<ScheduleRule> get rules => List.unmodifiable(_rules);
   bool get isNetworkBlocked => _isNetworkBlocked;
   bool get isStrictMode => _isStrictMode;
-  bool get vpnMonitorActive => _vpnMonitorActive;
   String get activeRuleName => _activeRule;
 
   ScheduleProvider() {
     VpnService.setOnVpnAuthorizedCallback(() {
-      // VPN 授权成功后刷新状态
-      _vpnMonitorActive = true;
+      // VPN 授权成功，刷新 UI
       notifyListeners();
     });
     LockTaskService.setOnDeviceAdminChangedCallback(() {
@@ -125,8 +122,7 @@ class ScheduleProvider extends ChangeNotifier {
       _isStrictMode = activeRule.strictMode;
       _activeRule = activeRule.name;
       notifyListeners();
-      // 监控模式下只需更新标记，VPN 服务保持运行
-      await VpnService.updateBlockState(
+      await VpnService.startVpn(
         blockWifi: activeRule.blockWifi,
         blockMobile: activeRule.blockMobile,
         reason: activeRule.name,
@@ -138,12 +134,7 @@ class ScheduleProvider extends ChangeNotifier {
       _isStrictMode = false;
       _activeRule = '';
       notifyListeners();
-      // 恢复监控模式（不拦截流量，但保持前台服务保活）
-      await VpnService.updateBlockState(
-        blockWifi: false,
-        blockMobile: false,
-        reason: '后台监控',
-      );
+      await VpnService.stopVpn();
       await NotificationService.showBlockEnded(_activeRule);
     } else if (activeRule != null && _isNetworkBlocked && activeRule.name != _activeRule) {
       _activeRule = activeRule.name;
@@ -154,26 +145,25 @@ class ScheduleProvider extends ChangeNotifier {
 
   Future<bool?> manualToggle() async {
     if (_isNetworkBlocked) {
-      await VpnService.updateBlockState(
-        blockWifi: false,
-        blockMobile: false,
-        reason: '后台监控',
-      );
+      await VpnService.stopVpn();
       _isNetworkBlocked = false;
       _isStrictMode = false;
       _activeRule = '';
       notifyListeners();
       return false;
     } else {
-      await VpnService.updateBlockState(
+      final started = await VpnService.startVpn(
         blockWifi: true,
         blockMobile: true,
         reason: '手动断网',
       );
-      _isNetworkBlocked = true;
-      _activeRule = '手动';
-      notifyListeners();
-      return true;
+      if (started) {
+        _isNetworkBlocked = true;
+        _activeRule = '手动';
+        notifyListeners();
+        return true;
+      }
+      return null;
     }
   }
 
@@ -183,21 +173,11 @@ class ScheduleProvider extends ChangeNotifier {
       _isNetworkBlocked = false;
       _activeRule = '';
       notifyListeners();
-      await VpnService.updateBlockState(
-        blockWifi: false,
-        blockMobile: false,
-        reason: '后台监控',
-      );
+      await VpnService.stopVpn();
       await NotificationService.showBlockEnded(_activeRule);
     } else {
       notifyListeners();
     }
-  }
-
-  /// 检查并更新 VPN 监控状态
-  Future<void> checkMonitorStatus() async {
-    _vpnMonitorActive = await VpnService.isVpnRunning();
-    notifyListeners();
   }
 
   /// 总断网时长统计（今日累计）

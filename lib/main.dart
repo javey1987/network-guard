@@ -101,7 +101,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     });
     if (ok) {
       context.read<ScheduleProvider>().startPeriodicCheck();
-      context.read<ScheduleProvider>().checkMonitorStatus();
     }
   }
 
@@ -116,7 +115,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     final provider = context.read<ScheduleProvider>();
     if (state == AppLifecycleState.resumed) {
       provider.startPeriodicCheck();
-      provider.checkMonitorStatus();
     } else if (state == AppLifecycleState.paused) {
       provider.stopPeriodicCheck();
     }
@@ -141,31 +139,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (!_activated) {
       return ActivationScreen(
         onActivated: () async {
-          // 激活后启动后台监控 VPN（不拦截流量，仅保活）
-          await VpnService.startMonitor();
+          // 激活后不需要启动 VPN，AlarmManager 到点会自动触发
           setState(() => _activated = true);
-          final provider = context.read<ScheduleProvider>();
-          provider.startPeriodicCheck();
-          // 延迟检查监控状态（等待 VPN 初始化）
-          Future.delayed(const Duration(seconds: 3), () {
-            provider.checkMonitorStatus();
-          });
+          context.read<ScheduleProvider>().startPeriodicCheck();
         },
       );
     }
     return const HomeScreen();
-  }
-}
-
-/// 确保监控 VPN 正在运行
-Future<bool> ensureMonitorRunning() async {
-  try {
-    final running = await VpnService.isVpnRunning();
-    if (!running) {
-      return await VpnService.startMonitor();
-    }
-    return true;
-  } catch (_) {
-    return false;
   }
 }
