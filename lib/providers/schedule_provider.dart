@@ -14,6 +14,8 @@ class ScheduleProvider extends ChangeNotifier {
   bool _vpnMonitorActive = false;
   String _activeRule = '';
   Timer? _checkTimer;
+  /// 首次检查标记：加载后第一次 timer 触发时不执行断网，仅记录时间
+  bool _firstCheckDone = false;
 
   List<ScheduleRule> get rules => List.unmodifiable(_rules);
   bool get isNetworkBlocked => _isNetworkBlocked;
@@ -25,7 +27,6 @@ class ScheduleProvider extends ChangeNotifier {
     VpnService.setOnVpnAuthorizedCallback(() {
       // VPN 授权成功后刷新状态
       _vpnMonitorActive = true;
-      _checkAndApply();
       notifyListeners();
     });
     LockTaskService.setOnDeviceAdminChangedCallback(() {
@@ -37,7 +38,8 @@ class ScheduleProvider extends ChangeNotifier {
     _rules = await DatabaseService.getAll();
     // 加载时同步系统闹钟
     AlarmService.scheduleAll(_rules);
-    _checkAndApply();
+    // 首次检查标记置 false，下次 timer 触发时只记录时间不执行断网
+    _firstCheckDone = false;
     notifyListeners();
   }
 
@@ -50,6 +52,7 @@ class ScheduleProvider extends ChangeNotifier {
     if (savedRule.enabled) {
       AlarmService.scheduleRule(savedRule);
     }
+    _firstCheckDone = true;
     _checkAndApply();
     notifyListeners();
   }
@@ -63,6 +66,7 @@ class ScheduleProvider extends ChangeNotifier {
     if (rule.enabled) {
       AlarmService.scheduleRule(rule);
     }
+    _firstCheckDone = true;
     _checkAndApply();
     notifyListeners();
   }
@@ -78,6 +82,7 @@ class ScheduleProvider extends ChangeNotifier {
     _rules.removeWhere((r) => r.id == id);
     // 删除系统闹钟
     AlarmService.cancelRule(id);
+    _firstCheckDone = true;
     _checkAndApply();
     notifyListeners();
   }
@@ -87,6 +92,8 @@ class ScheduleProvider extends ChangeNotifier {
     _checkTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _checkAndApply();
     });
+    // 定时器首次触发要等 30 秒，主动立即执行一次
+    _checkAndApply();
   }
 
   void stopPeriodicCheck() {
@@ -97,6 +104,15 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> _checkAndApply() async {
     final now = DateTime.now();
     ScheduleRule? activeRule;
+
+    // 首次检查：仅记录当前状态，不触发断网
+    if (!_firstCheckDone) {
+      _firstCheckDone = true;
+      // 但如果当前有规则正在阻断中（如已经由 AlarmReceiver 触发），保持阻断状态
+      // 否则什么都不做
+      return;
+    }
+
     for (final rule in _rules) {
       if (rule.isActive(now)) {
         activeRule = rule;
