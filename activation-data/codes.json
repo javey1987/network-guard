@@ -31,9 +31,9 @@
       "activatedAt": "2026-05-29T10:34:07.118Z"
     },
     "D4A4B0-1404E2-E6D830-B30ACE": {
-      "used": false,
-      "deviceId": null,
-      "activatedAt": null
+      "used": true,
+      "deviceId": "DG17800516199301184",
+      "activatedAt": "2026-05-29T10:47:00.783Z"
     },
     "D6D0AA-ECB3CA-A4AA91-84FFF1": {
       "used": false,
@@ -100,6 +100,10 @@
     "DG17800507622399752": {
       "code": "DB7C76-75E142-0DED07-5A4EBA",
       "activatedAt": "2026-05-29T10:34:07.118Z"
+    },
+    "DG17800516199301184": {
+      "code": "D4A4B0-1404E2-E6D830-B30ACE",
+      "activatedAt": "2026-05-29T10:47:00.783Z"
     }
   }
 }
