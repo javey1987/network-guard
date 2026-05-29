@@ -35,7 +35,6 @@ class _ActivationScreenState extends State<ActivationScreen> {
 
     if (result.success) {
       widget.onActivated?.call();
-      Navigator.of(context).pop(true);
     } else {
       setState(() {
         _loading = false;

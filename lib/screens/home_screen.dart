@@ -63,6 +63,30 @@ class HomeScreen extends StatelessWidget {
           return Column(
             children: [
               _StatusBanner(provider: provider),
+              if (!provider.vpnMonitorActive)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                  color: Colors.orange.shade100,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '⚡ VPN 后台服务未启动，规则将在最小化后失效',
+                          style: TextStyle(fontSize: 13, color: Colors.orange.shade900),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          await context.read<ScheduleProvider>().checkMonitorStatus();
+                        },
+                        child: const Text('检查', style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: provider.rules.isEmpty
                     ? _EmptyState()

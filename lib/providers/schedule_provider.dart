@@ -10,18 +10,21 @@ class ScheduleProvider extends ChangeNotifier {
   List<ScheduleRule> _rules = [];
   bool _isNetworkBlocked = false;
   bool _isStrictMode = false;
+  bool _vpnMonitorActive = false;
   String _activeRule = '';
   Timer? _checkTimer;
 
   List<ScheduleRule> get rules => List.unmodifiable(_rules);
   bool get isNetworkBlocked => _isNetworkBlocked;
   bool get isStrictMode => _isStrictMode;
+  bool get vpnMonitorActive => _vpnMonitorActive;
   String get activeRuleName => _activeRule;
 
   ScheduleProvider() {
     VpnService.setOnVpnAuthorizedCallback(() {
-      _isNetworkBlocked = true;
-      _activeRule = '手动';
+      // VPN 授权成功后刷新状态
+      _vpnMonitorActive = true;
+      _checkAndApply();
       notifyListeners();
     });
     LockTaskService.setOnDeviceAdminChangedCallback(() {
@@ -157,6 +160,12 @@ class ScheduleProvider extends ChangeNotifier {
     } else {
       notifyListeners();
     }
+  }
+
+  /// 检查并更新 VPN 监控状态
+  Future<void> checkMonitorStatus() async {
+    _vpnMonitorActive = await VpnService.isVpnRunning();
+    notifyListeners();
   }
 
   /// 总断网时长统计（今日累计）
