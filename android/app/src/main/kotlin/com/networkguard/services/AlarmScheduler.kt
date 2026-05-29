@@ -4,10 +4,13 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.os.Build
+import android.util.Log
 import com.networkguard.receivers.AlarmReceiver
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 /**
  * 系统级定时调度器。
@@ -20,6 +23,7 @@ class AlarmScheduler(private val context: Context) {
     private val schedulePrefs = context.getSharedPreferences("alarm_schedule", Context.MODE_PRIVATE)
 
     companion object {
+        private const val TAG = "AlarmScheduler"
         private const val BASE_REQUEST_CODE = 30000
         private const val STORE_PREFIX = "rule_"
     }
@@ -82,6 +86,7 @@ class AlarmScheduler(private val context: Context) {
      * 开机后恢复所有持久化的闹钟
      */
     fun rescheduleAllOnBoot() {
+        Log.i(TAG, "rescheduleAllOnBoot: 开机恢复闹钟")
         val allKeys = schedulePrefs.all.keys.filter { it.startsWith(STORE_PREFIX) }
         for (key in allKeys) {
             val data = loadAlarmInfo(key) ?: continue
@@ -120,6 +125,7 @@ class AlarmScheduler(private val context: Context) {
         val data = loadAlarmInfo(targetKey) ?: return
         val now = System.currentTimeMillis()
 
+        Log.d(TAG, "rescheduleNext: ruleId=$ruleId startMin=${data.startMinutes} dur=${data.durationMinutes}")
         val nextStart = calcNextTime(data.startMinutes, data.daysOfWeek, now + 60000)
         val nextEnd = nextStart + data.durationMinutes * 60_000L
 

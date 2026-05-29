@@ -15,6 +15,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.networkguard.services.NetworkGuardVpnService
 import com.networkguard.services.AlarmScheduler
+import com.networkguard.services.SchedulerService
 import com.networkguard.receivers.DeviceAdminReceiver
 import java.security.MessageDigest
 
@@ -33,6 +34,7 @@ class MainActivity : FlutterActivity() {
         private const val VPN_CHANNEL = "com.networkguard/vpn"
         private const val LOCK_CHANNEL = "com.networkguard/locktask"
         private const val ALARM_CHANNEL = "com.networkguard/alarm"
+        private const val SCHEDULER_CHANNEL = "com.networkguard/scheduler"
         private const val PREFS_CHANNEL = "com.networkguard/prefs"
         private const val STATS_CHANNEL = "com.networkguard/stats"
         private const val VPN_REQUEST_CODE = 9001
@@ -126,6 +128,31 @@ class MainActivity : FlutterActivity() {
                     }
                 } catch (e: Exception) {
                     result.error("ALARM_ERROR", e.message, null)
+                }
+            }
+
+        // ── 常驻调度通道 ────────────────────────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SCHEDULER_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                try {
+                    when (call.method) {
+                        "saveRules" -> {
+                            val rulesJson = call.argument<String>("rulesJson") ?: "[]"
+                            SchedulerService.saveRules(this, rulesJson)
+                            result.success(true)
+                        }
+                        "startScheduler" -> {
+                            SchedulerService.start(this)
+                            result.success(true)
+                        }
+                        "stopScheduler" -> {
+                            SchedulerService.stop(this)
+                            result.success(true)
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (e: Exception) {
+                    result.error("SCHEDULER_ERROR", e.message, null)
                 }
             }
 

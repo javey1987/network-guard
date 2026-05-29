@@ -95,7 +95,11 @@ function getAdminKey() {
 
 function requireAdmin(req, res, next) {
   const key = req.headers['x-admin-key'] || req.query.key;
-  if (key !== getAdminKey()) return res.status(403).json({ ok: false, msg: '无权限' });
+  if (key !== getAdminKey()) {
+    console.log('[AUTH] 密钥不匹配:', JSON.stringify(key), 'vs', JSON.stringify(getAdminKey()));
+    console.log('[AUTH] headers:', JSON.stringify(req.headers));
+    return res.status(403).json({ ok: false, msg: '无权限' });
+  }
   next();
 }
 

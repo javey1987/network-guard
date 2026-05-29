@@ -6,6 +6,7 @@ import 'providers/schedule_provider.dart';
 import 'services/vpn_service.dart';
 import 'services/notification_service.dart';
 import 'services/activation_service.dart';
+import 'services/scheduler_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/activation_screen.dart';
 
@@ -17,6 +18,10 @@ void main() async {
 
   // 初始化 VPN 原生回调监听
   VpnService.init();
+
+  // 初始化常驻调度服务（确保前台服务运行）
+  // 规则会在 loadRules 时同步
+  SchedulerService.start();
 
   // 强制竖屏
   await SystemChrome.setPreferredOrientations([

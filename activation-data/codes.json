@@ -21,9 +21,9 @@
       "activatedAt": "2026-05-29T08:51:58.637Z"
     },
     "EFBD71-135975-741412-066A24": {
-      "used": false,
-      "deviceId": null,
-      "activatedAt": null
+      "used": true,
+      "deviceId": "DG17800473933322505",
+      "activatedAt": "2026-05-29T09:36:34.193Z"
     },
     "DB7C76-75E142-0DED07-5A4EBA": {
       "used": false,
@@ -54,6 +54,26 @@
       "used": false,
       "deviceId": null,
       "activatedAt": null
+    },
+    "6814C5-31BDB2-E237EA-2F3FCB": {
+      "used": false,
+      "deviceId": null,
+      "activatedAt": null
+    },
+    "3C411C-0ACACE-AAFA02-8E755C": {
+      "used": false,
+      "deviceId": null,
+      "activatedAt": null
+    },
+    "024C0A-DF2439-60A60B-9EA0BC": {
+      "used": false,
+      "deviceId": null,
+      "activatedAt": null
+    },
+    "65AC5A-463537-5F8FC9-E5303B": {
+      "used": false,
+      "deviceId": null,
+      "activatedAt": null
     }
   },
   "devices": {
@@ -72,6 +92,10 @@
     "DG17800445392055653": {
       "code": "74D19D-F93D22-7E3946-DB4889",
       "activatedAt": "2026-05-29T08:51:58.637Z"
+    },
+    "DG17800473933322505": {
+      "code": "EFBD71-135975-741412-066A24",
+      "activatedAt": "2026-05-29T09:36:34.193Z"
     }
   }
 }

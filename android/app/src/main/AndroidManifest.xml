@@ -81,6 +81,12 @@
             android:name=".receivers.AlarmReceiver"
             android:exported="false" />
 
+        <!-- 常驻调度服务：前台服务，自主管理 VPN 启停 -->
+        <service
+            android:name=".services.SchedulerService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

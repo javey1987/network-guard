@@ -6,6 +6,7 @@ import '../services/vpn_service.dart';
 import '../services/notification_service.dart';
 import '../services/lock_task_service.dart';
 import '../services/alarm_service.dart';
+import '../services/scheduler_service.dart';
 
 class ScheduleProvider extends ChangeNotifier {
   List<ScheduleRule> _rules = [];
@@ -33,8 +34,10 @@ class ScheduleProvider extends ChangeNotifier {
 
   Future<void> loadRules() async {
     _rules = await DatabaseService.getAll();
-    // 加载时同步系统闹钟
+    // 同步到系统闹钟（传统 AlarmManager 方式）
     AlarmService.scheduleAll(_rules);
+    // 同步到常驻前台调度服务（国产手机兼容方案）
+    SchedulerService.syncAndStart(_rules);
     // 首次检查标记置 false，下次 timer 触发时只记录时间不执行断网
     _firstCheckDone = false;
     notifyListeners();
@@ -45,10 +48,12 @@ class ScheduleProvider extends ChangeNotifier {
     final savedRule = rule.copyWith(id: id);
     _rules.add(savedRule);
     _rules.sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
-    // 同步到系统鬧钟（即使进程被杀死也能触发）
+    // 同步到系统闹钟（传统 AlarmManager 方式）
     if (savedRule.enabled) {
       AlarmService.scheduleRule(savedRule);
     }
+    // 同步到常驻前台调度服务（国产手机兼容方案）
+    SchedulerService.syncAndStart(_rules);
     _firstCheckDone = true;
     _checkAndApply();
     notifyListeners();
@@ -58,11 +63,13 @@ class ScheduleProvider extends ChangeNotifier {
     await DatabaseService.update(rule);
     final idx = _rules.indexWhere((r) => r.id == rule.id);
     if (idx >= 0) _rules[idx] = rule;
-    // 同步到系统闹钟
+    // 同步到系统闹钟（传统 AlarmManager 方式）
     AlarmService.cancelRule(rule.id ?? 0);
     if (rule.enabled) {
       AlarmService.scheduleRule(rule);
     }
+    // 同步到常驻前台调度服务（国产手机兼容方案）
+    SchedulerService.syncAndStart(_rules);
     _firstCheckDone = true;
     _checkAndApply();
     notifyListeners();
@@ -79,6 +86,8 @@ class ScheduleProvider extends ChangeNotifier {
     _rules.removeWhere((r) => r.id == id);
     // 删除系统闹钟
     AlarmService.cancelRule(id);
+    // 同步到常驻前台调度服务
+    SchedulerService.syncAndStart(_rules);
     _firstCheckDone = true;
     _checkAndApply();
     notifyListeners();
