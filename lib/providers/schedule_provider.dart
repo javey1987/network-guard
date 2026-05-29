@@ -5,6 +5,7 @@ import '../services/database_service.dart';
 import '../services/vpn_service.dart';
 import '../services/notification_service.dart';
 import '../services/lock_task_service.dart';
+import '../services/alarm_service.dart';
 
 class ScheduleProvider extends ChangeNotifier {
   List<ScheduleRule> _rules = [];
@@ -34,14 +35,21 @@ class ScheduleProvider extends ChangeNotifier {
 
   Future<void> loadRules() async {
     _rules = await DatabaseService.getAll();
+    // 加载时同步系统闹钟
+    AlarmService.scheduleAll(_rules);
     _checkAndApply();
     notifyListeners();
   }
 
   Future<void> addRule(ScheduleRule rule) async {
     final id = await DatabaseService.insert(rule);
-    _rules.add(rule.copyWith(id: id));
+    final savedRule = rule.copyWith(id: id);
+    _rules.add(savedRule);
     _rules.sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+    // 同步到系统鬧钟（即使进程被杀死也能触发）
+    if (savedRule.enabled) {
+      AlarmService.scheduleRule(savedRule);
+    }
     _checkAndApply();
     notifyListeners();
   }
@@ -50,18 +58,26 @@ class ScheduleProvider extends ChangeNotifier {
     await DatabaseService.update(rule);
     final idx = _rules.indexWhere((r) => r.id == rule.id);
     if (idx >= 0) _rules[idx] = rule;
+    // 同步到系统闹钟
+    AlarmService.cancelRule(rule.id ?? 0);
+    if (rule.enabled) {
+      AlarmService.scheduleRule(rule);
+    }
     _checkAndApply();
     notifyListeners();
   }
 
   Future<void> toggleEnabled(ScheduleRule rule) async {
     final updated = rule.copyWith(enabled: !rule.enabled);
+    // toggleEnabled 会调 updateRule，后者已经处理了闹钟同步
     await updateRule(updated);
   }
 
   Future<void> deleteRule(int id) async {
     await DatabaseService.delete(id);
     _rules.removeWhere((r) => r.id == id);
+    // 删除系统闹钟
+    AlarmService.cancelRule(id);
     _checkAndApply();
     notifyListeners();
   }

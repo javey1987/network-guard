@@ -14,6 +14,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.networkguard.services.NetworkGuardVpnService
+import com.networkguard.services.AlarmScheduler
 import com.networkguard.receivers.DeviceAdminReceiver
 import java.security.MessageDigest
 
@@ -31,6 +32,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val VPN_CHANNEL = "com.networkguard/vpn"
         private const val LOCK_CHANNEL = "com.networkguard/locktask"
+        private const val ALARM_CHANNEL = "com.networkguard/alarm"
         private const val PREFS_CHANNEL = "com.networkguard/prefs"
         private const val STATS_CHANNEL = "com.networkguard/stats"
         private const val VPN_REQUEST_CODE = 9001
@@ -125,6 +127,39 @@ class MainActivity : FlutterActivity() {
                 result.error("VPN_ERROR", e.message, null)
             }
         }
+
+        // ── 闹钟定时通道 ────────────────────────────────────
+        val alarmScheduler = AlarmScheduler(this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ALARM_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                try {
+                    when (call.method) {
+                        "scheduleRule" -> {
+                            val ruleId = call.argument<Int>("ruleId") ?: 0
+                            val ruleName = call.argument<String>("ruleName") ?: ""
+                            val startMinutes = call.argument<Int>("startMinutes") ?: 0
+                            val durationMinutes = call.argument<Int>("durationMinutes") ?: 0
+                            val daysOfWeek = call.argument<List<Int>>("daysOfWeek") ?: emptyList()
+                            val blockWifi = call.argument<Boolean>("blockWifi") ?: true
+                            val blockMobile = call.argument<Boolean>("blockMobile") ?: true
+                            val allowedApps = call.argument<List<String>>("allowedApps") ?: emptyList()
+                            alarmScheduler.scheduleRule(
+                                ruleId, ruleName, startMinutes, durationMinutes,
+                                daysOfWeek, blockWifi, blockMobile, allowedApps
+                            )
+                            result.success(true)
+                        }
+                        "cancelRule" -> {
+                            val ruleId = call.argument<Int>("ruleId") ?: 0
+                            alarmScheduler.cancelRule(ruleId)
+                            result.success(true)
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (e: Exception) {
+                    result.error("ALARM_ERROR", e.message, null)
+                }
+            }
 
         // ── 屏幕固定通道 ────────────────────────────────────
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LOCK_CHANNEL)

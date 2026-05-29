@@ -76,6 +76,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- 闹钟接收器：系统级定时唤醒，进程被杀死也能触发 -->
+        <receiver
+            android:name=".receivers.AlarmReceiver"
+            android:exported="false" />
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
