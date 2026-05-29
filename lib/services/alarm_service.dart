@@ -8,13 +8,21 @@ class AlarmService {
 
   /// 为一条规则注册定时闹钟
   static Future<bool> scheduleRule(ScheduleRule rule) async {
+    // 计算持续分钟数
+    int duration;
+    if (rule.crossesMidnight) {
+      duration = (24 * 60 - rule.startMinutes) + rule.endMinutes;
+    } else {
+      duration = rule.endMinutes - rule.startMinutes;
+    }
+
     try {
       final result = await _channel.invokeMethod<bool>('scheduleRule', {
         'ruleId': rule.id ?? 0,
         'ruleName': rule.name,
         'startMinutes': rule.startMinutes,
-        'durationMinutes': rule.durationMinutes,
-        'daysOfWeek': rule.daysOfWeek,
+        'durationMinutes': duration,
+        'daysOfWeek': rule.repeatDaily ? rule.repeatDays : <int>[],
         'blockWifi': rule.blockWifi,
         'blockMobile': rule.blockMobile,
         'allowedApps': rule.allowedApps,
