@@ -74,6 +74,13 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                         }
                     }
+                    "requestVpnPermission" -> {
+                        val prepareIntent = VpnService.prepare(this)
+                        if (prepareIntent != null) {
+                            startActivityForResult(prepareIntent, VPN_REQUEST_CODE)
+                        }
+                        result.success(true)
+                    }
                     "stopVpn" -> {
                         val intent = Intent(this, NetworkGuardVpnService::class.java).apply {
                             action = NetworkGuardVpnService.ACTION_STOP

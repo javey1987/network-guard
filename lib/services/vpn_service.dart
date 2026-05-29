@@ -73,4 +73,14 @@ class VpnService {
       return 'unknown';
     }
   }
+
+  /// 主动请求 VPN 授权（不启动 VPN），系统会弹窗让用户确认
+  /// 授权成功后通过 onVpnAuthorized 回调通知
+  static Future<void> requestPermission() async {
+    try {
+      await _channel.invokeMethod<void>('requestVpnPermission');
+    } on PlatformException catch (e) {
+      print('VPN permission request error: ${e.message}');
+    }
+  }
 }
