@@ -9,6 +9,7 @@
     <!-- 前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- 显示通知 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 防止休眠 -->
@@ -85,7 +86,7 @@
         <service
             android:name=".services.SchedulerService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice" />
+            android:foregroundServiceType="dataSync" />
 
         <meta-data
             android:name="flutterEmbedding"
