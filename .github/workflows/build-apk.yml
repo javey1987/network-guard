@@ -50,6 +50,15 @@ jobs:
           path: build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
 
+      - name: 🚀 Deploy APK to lilihaha.com
+        if: inputs.build_mode == 'debug' || github.ref == 'refs/heads/main'
+        env:
+          UPLOAD_KEY: ${{ secrets.ACTIVATION_ADMIN_KEY }}
+        run: |
+          curl -s -X POST "https://lilihaha.com/api/upload-apk" \
+            -H "x-admin-key: ${{ secrets.ACTIVATION_ADMIN_KEY }}" \
+            -F "apk=@build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk"
+
       - name: 📦 Create Release (tag only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

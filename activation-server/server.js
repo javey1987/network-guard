@@ -175,6 +175,61 @@ app.post('/api/admin/change-key', requireAdmin, (req, res) => {
   }
 });
 
+// ── APK 上传 API ──
+const TARGET_DIR = '/var/www/lilihaha.com/public/network-guard';
+
+// 文件上传配置（multer 替代品，使用 busboy 或原生处理）
+app.post('/api/upload-apk', requireAdmin, (req, res) => {
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.includes('multipart/form-data')) {
+    return res.json({ ok: false, msg: '请使用 multipart/form-data 上传' });
+  }
+
+  const boundary = contentType.split('boundary=')[1];
+  if (!boundary) return res.json({ ok: false, msg: '缺少 boundary' });
+
+  const chunks = [];
+  req.on('data', chunk => chunks.push(chunk));
+  req.on('end', () => {
+    const raw = Buffer.concat(chunks);
+
+    // 从 multipart 中提取文件名和文件内容
+    const parts = raw.toString('binary').split(new RegExp(boundary, 'g'));
+    for (const part of parts) {
+      if (!part.includes('filename="')) continue;
+      const headerEnd = part.indexOf('\r\n\r\n');
+      if (headerEnd === -1) continue;
+      const header = part.substring(0, headerEnd);
+      const fileNameMatch = header.match(/filename="([^"]+)"/);
+      const name = fileNameMatch ? fileNameMatch[1] : 'app-arm64-v8a-debug.apk';
+
+      // 提取文件内容（跳过 header 和尾部 boundary 标记）
+      const fileData = part.substring(headerEnd + 4);
+      // 去除尾部 \r\n-- 或 \r\n
+      const endIdx = fileData.lastIndexOf('\r\n');
+      const cleanData = endIdx > 0 ? fileData.substring(0, endIdx) : fileData;
+      const fileBuffer = Buffer.from(cleanData, 'binary');
+
+      if (fileBuffer.length < 1024) {
+        return res.json({ ok: false, msg: '文件太小，可能不是有效的 APK' });
+      }
+
+      // 确保目录存在
+      if (!fs.existsSync(TARGET_DIR)) {
+        fs.mkdirSync(TARGET_DIR, { recursive: true });
+      }
+
+      const targetPath = path.join(TARGET_DIR, 'app-arm64-v8a-debug.apk');
+      fs.writeFileSync(targetPath, fileBuffer);
+
+      console.log(`📦 APK 已部署: ${targetPath} (${(fileBuffer.length / 1024 / 1024).toFixed(1)}MB)`);
+      return res.json({ ok: true, msg: 'APK 部署成功', size: fileBuffer.length });
+    }
+
+    res.json({ ok: false, msg: '未找到文件内容' });
+  });
+});
+
 // ── 启动 ──
 app.listen(PORT, () => {
   console.log(`✅ 激活码服务已启动，端口 ${PORT}`);
