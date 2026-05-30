@@ -139,12 +139,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (!_activated) {
       return ActivationScreen(
         onActivated: () async {
-          // 先切到主界面（Activity 状态稳定后再弹授权窗）
+          // 先在当前页面请求 VPN 授权（此时 Activity 稳定）
+          await VpnService.requestPermission();
+          // 再切到主界面
           setState(() => _activated = true);
           context.read<ScheduleProvider>().startPeriodicCheck();
-          // 延迟一帧，等主界面渲染完后再请求 VPN 授权
-          await Future<void>.delayed(const Duration(milliseconds: 300));
-          await VpnService.requestPermission();
         },
       );
     }
