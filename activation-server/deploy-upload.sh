@@ -21,3 +21,4 @@ echo "📤 上传 APK..."
 curl -s -X POST "$API_URL" \
   -H "x-admin-key: $ADMIN_KEY" \
   -F "apk=@$APK_PATH" | jq .
+# Trigger redeploy
