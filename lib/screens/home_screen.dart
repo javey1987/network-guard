@@ -63,6 +63,7 @@ class HomeScreen extends StatelessWidget {
           return Column(
             children: [
               _StatusBanner(provider: provider),
+              const _AutoStartBanner(),
               Expanded(
                 child: provider.rules.isEmpty
                     ? _EmptyState()
@@ -101,6 +102,50 @@ class HomeScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const AdminSettingsScreen()),
+    );
+  }
+}
+
+/// 自启引导横幅 — 提示用户将 App 加入系统「受保护应用 / 自启动」白名单
+class _AutoStartBanner extends StatefulWidget {
+  const _AutoStartBanner();
+
+  @override
+  State<_AutoStartBanner> createState() => _AutoStartBannerState();
+}
+
+class _AutoStartBannerState extends State<_AutoStartBanner> {
+  bool _dismissed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_dismissed) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.amber.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, size: 18, color: Colors.amber.shade700),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              '请将本 App 加入「自启动/受保护应用」白名单，
+否则滑掉后台后定时将失效',
+              style: TextStyle(fontSize: 12, color: Color(0xFF5D4E37)),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _dismissed = true),
+            child: Icon(Icons.close, size: 16, color: Colors.amber.shade400),
+          ),
+        ],
+      ),
     );
   }
 }

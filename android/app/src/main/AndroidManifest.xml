@@ -14,6 +14,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 防止休眠 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 精确闹钟（Android 12+ 必需，否则 setExactAndAllowWhileIdle 降级为非精确） -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- 使用统计 -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <!-- 查询已安装应用 -->

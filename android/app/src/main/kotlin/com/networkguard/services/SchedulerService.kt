@@ -75,8 +75,10 @@ class SchedulerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_START -> {
+        val action = intent?.action
+        when (action) {
+            ACTION_START, null -> {
+                // null = 系统通过 START_STICKY 重启服务（进程被滑掉后），视为启动指令
                 startForeground(NOTIFICATION_ID, buildNotification("调度运行中", false))
                 performCheck()
             }
