@@ -39,6 +39,7 @@ class MainActivity : FlutterActivity() {
         private const val PREFS_CHANNEL = "com.networkguard/prefs"
         private const val STATS_CHANNEL = "com.networkguard/stats"
         private const val JOBSCHEDULER_CHANNEL = "com.networkguard/jobscheduler"
+        private const val SETTINGS_CHANNEL = "com.networkguard/settings"
         private const val VPN_REQUEST_CODE = 9001
         private const val ADMIN_REQUEST_CODE = 9002
         private const val USAGE_REQUEST_CODE = 9003
@@ -206,6 +207,26 @@ class MainActivity : FlutterActivity() {
                     }
                 } catch (e: Exception) {
                     result.error("LOCK_ERROR", e.message, null)
+                }
+            }
+
+        // ── 系统设置跳转通道 ────────────────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SETTINGS_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                try {
+                    when (call.method) {
+                        "openAppSettings" -> {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = android.net.Uri.fromParts("package", packageName, null)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (e: Exception) {
+                    result.error("SETTINGS_ERROR", e.message, null)
                 }
             }
 

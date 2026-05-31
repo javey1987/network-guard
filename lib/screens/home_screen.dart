@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/schedule_provider.dart';
 import '../models/schedule_rule.dart';
 import '../services/pin_service.dart';
+import '../services/settings_service.dart';
 import 'add_schedule_screen.dart';
 import 'admin_settings.dart';
 import 'pin_screen.dart';
@@ -116,6 +117,13 @@ class _AutoStartBanner extends StatefulWidget {
 
 class _AutoStartBannerState extends State<_AutoStartBanner> {
   bool _dismissed = false;
+  bool _loading = false;
+
+  void _goToSettings() async {
+    setState(() => _loading = true);
+    await SettingsService.openAppSettings();
+    setState(() => _loading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,25 +131,53 @@ class _AutoStartBannerState extends State<_AutoStartBanner> {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.amber.shade50,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.amber.shade200),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, size: 18, color: Colors.amber.shade700),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text(
-              '请将本 App 加入「自启动/受保护应用」白名单，否则滑掉后台后定时将失效',
-              style: TextStyle(fontSize: 12, color: Color(0xFF5D4E37)),
-            ),
+          Row(
+            children: [
+              Icon(Icons.info_outline, size: 18, color: Colors.amber.shade700),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  '加入自启白名单，滑掉后台定时也生效',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF5D4E37)),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => setState(() => _dismissed = true),
+                child: Icon(Icons.close, size: 16, color: Colors.amber.shade400),
+              ),
+            ],
           ),
-          GestureDetector(
-            onTap: () => setState(() => _dismissed = true),
-            child: Icon(Icons.close, size: 16, color: Colors.amber.shade400),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _loading ? null : _goToSettings,
+              icon: _loading
+                  ? const SizedBox(
+                      width: 14, height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.open_in_new, size: 14),
+              label: const Text('去设置', style: TextStyle(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF5D4E37),
+                side: BorderSide(color: Colors.amber.shade300),
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                minimumSize: const Size(0, 30),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
           ),
         ],
       ),
