@@ -4,24 +4,23 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
-import androidx.work.CoroutineWorker
+import androidx.work.Worker
 import androidx.work.WorkerParameters
 
 /**
  * 一次性定时 Worker（替代 AlarmReceiver）。
  *
- * 两种模式：
- *  - isStart=true  → 到点启动封锁（启动 NetworkGuardVpnService）
- *  - isStart=false → 到点恢复网络（停止 NetworkGuardVpnService）
+ * 使用 Worker（非 CoroutineWorker）减少依赖。
+ * isStart=true → 到点封锁；isStart=false → 到点恢复
  *
- * 使用 WorkManager 调度，比 AlarmManager 在国产手机上兼容性更好。
+ * 由 WorkManager 调度，比 AlarmManager 在国产手机上兼容性更好。
  */
 class BlockWorker(
     context: Context,
     params: WorkerParameters
-) : CoroutineWorker(context, params) {
+) : Worker(context, params) {
 
-    override suspend fun doWork(): Result {
+    override fun doWork(): Result {
         val ruleId = inputData.getInt("ruleId", -1)
         val ruleName = inputData.getString("ruleName") ?: "定时断网"
         val isStart = inputData.getBoolean("isStart", true)
@@ -31,9 +30,8 @@ class BlockWorker(
 
         Log.i(TAG, "Worker 触发: ${if (isStart) "封锁" else "恢复"} $ruleName (ruleId=$ruleId)")
 
-        return try {
+        try {
             if (isStart) {
-                // 到点封锁
                 val vpnIntent = Intent(applicationContext, NetworkGuardVpnService::class.java).apply {
                     action = NetworkGuardVpnService.ACTION_START
                     putExtra("blockWifi", blockWifi)
@@ -47,16 +45,15 @@ class BlockWorker(
                     applicationContext.startService(vpnIntent)
                 }
             } else {
-                // 到点恢复
                 val stopIntent = Intent(applicationContext, NetworkGuardVpnService::class.java).apply {
                     action = NetworkGuardVpnService.ACTION_STOP
                 }
                 applicationContext.startService(stopIntent)
             }
-            Result.success()
+            return Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Worker 执行失败: ${e.message}")
-            Result.retry()
+            return Result.retry()
         }
     }
 
