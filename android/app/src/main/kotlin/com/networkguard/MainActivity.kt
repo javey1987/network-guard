@@ -207,6 +207,45 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        // ── WorkManager 保活通道 ───────────────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WORK_MANAGER_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                try {
+                    when (call.method) {
+                        "startPeriodicGuard" -> {
+                            WorkManagerScheduler.startPeriodicGuard(this)
+                            result.success(true)
+                        }
+                        "stopPeriodicGuard" -> {
+                            WorkManagerScheduler.stopPeriodicGuard(this)
+                            result.success(true)
+                        }
+                        "scheduleBlockWorker" -> {
+                            val ruleId = call.argument<Int>("ruleId") ?: 0
+                            val isStart = call.argument<Boolean>("isStart") ?: true
+                            val triggerTimeMs = call.argument<Long>("triggerTimeMs") ?: 0L
+                            val ruleName = call.argument<String>("ruleName") ?: ""
+                            val blockWifi = call.argument<Boolean>("blockWifi") ?: true
+                            val blockMobile = call.argument<Boolean>("blockMobile") ?: true
+                            val allowedApps = call.argument<List<String>>("allowedApps") ?: emptyList()
+                            WorkManagerScheduler.scheduleBlockWorker(
+                                this, ruleId, isStart, triggerTimeMs,
+                                ruleName, blockWifi, blockMobile, allowedApps
+                            )
+                            result.success(true)
+                        }
+                        "cancelBlockWorker" -> {
+                            val ruleId = call.argument<Int>("ruleId") ?: 0
+                            WorkManagerScheduler.cancelBlockWorker(this, ruleId)
+                            result.success(true)
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (e: Exception) {
+                    result.error("WORK_MANAGER_ERROR", e.message, null)
+                }
+            }
+
         // ── PIN 管理通道（家长版） ──────────────────────────
         val prefs = getSharedPreferences("vpn_prefs", MODE_PRIVATE)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PREFS_CHANNEL)

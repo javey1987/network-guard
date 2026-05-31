@@ -7,6 +7,7 @@ import '../services/notification_service.dart';
 import '../services/lock_task_service.dart';
 import '../services/alarm_service.dart';
 import '../services/scheduler_service.dart';
+import '../services/work_manager_service.dart';
 
 class ScheduleProvider extends ChangeNotifier {
   List<ScheduleRule> _rules = [];
@@ -38,6 +39,9 @@ class ScheduleProvider extends ChangeNotifier {
     AlarmService.scheduleAll(_rules);
     // 同步到常驻前台调度服务（国产手机兼容方案）
     SchedulerService.syncAndStart(_rules);
+    // 同步到 WorkManager 保活 + 额外定时
+    WorkManagerService.startPeriodicGuard();
+    WorkManagerService.scheduleAll(_rules);
     // 首次检查标记置 false，下次 timer 触发时只记录时间不执行断网
     _firstCheckDone = false;
     notifyListeners();
@@ -54,6 +58,9 @@ class ScheduleProvider extends ChangeNotifier {
     }
     // 同步到常驻前台调度服务（国产手机兼容方案）
     SchedulerService.syncAndStart(_rules);
+    // 同步到 WorkManager 保活 + 额外定时
+    WorkManagerService.startPeriodicGuard();
+    WorkManagerService.scheduleAll(_rules);
     _firstCheckDone = true;
     _checkAndApply();
     notifyListeners();
@@ -70,6 +77,9 @@ class ScheduleProvider extends ChangeNotifier {
     }
     // 同步到常驻前台调度服务（国产手机兼容方案）
     SchedulerService.syncAndStart(_rules);
+    // 同步到 WorkManager 保活 + 额外定时
+    WorkManagerService.startPeriodicGuard();
+    WorkManagerService.scheduleAll(_rules);
     _firstCheckDone = true;
     _checkAndApply();
     notifyListeners();
@@ -88,6 +98,9 @@ class ScheduleProvider extends ChangeNotifier {
     AlarmService.cancelRule(id);
     // 同步到常驻前台调度服务
     SchedulerService.syncAndStart(_rules);
+    // 同步到 WorkManager 保活 + 额外定时
+    WorkManagerService.startPeriodicGuard();
+    WorkManagerService.scheduleAll(_rules);
     _firstCheckDone = true;
     _checkAndApply();
     notifyListeners();
