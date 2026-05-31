@@ -135,8 +135,7 @@ class _AutoStartBannerState extends State<_AutoStartBanner> {
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
-              '请将本 App 加入「自启动/受保护应用」白名单，
-否则滑掉后台后定时将失效',
+              '请将本 App 加入「自启动/受保护应用」白名单，否则滑掉后台后定时将失效',
               style: TextStyle(fontSize: 12, color: Color(0xFF5D4E37)),
             ),
           ),
