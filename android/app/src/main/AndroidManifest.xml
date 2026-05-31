@@ -91,6 +91,16 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- JobScheduler 保活服务（Android 原生，无外部依赖） -->
+        <service
+            android:name=".services.PeriodicGuardJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
+            android:name=".services.BlockJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

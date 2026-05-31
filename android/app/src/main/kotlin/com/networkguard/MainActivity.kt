@@ -15,6 +15,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.networkguard.services.NetworkGuardVpnService
 import com.networkguard.services.AlarmScheduler
+import com.networkguard.services.JobSchedulerScheduler
 import com.networkguard.services.SchedulerService
 import com.networkguard.receivers.DeviceAdminReceiver
 import java.security.MessageDigest
@@ -37,6 +38,7 @@ class MainActivity : FlutterActivity() {
         private const val SCHEDULER_CHANNEL = "com.networkguard/scheduler"
         private const val PREFS_CHANNEL = "com.networkguard/prefs"
         private const val STATS_CHANNEL = "com.networkguard/stats"
+        private const val JOBSCHEDULER_CHANNEL = "com.networkguard/jobscheduler"
         private const val VPN_REQUEST_CODE = 9001
         private const val ADMIN_REQUEST_CODE = 9002
         private const val USAGE_REQUEST_CODE = 9003
@@ -207,20 +209,20 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-        // ── WorkManager 保活通道 ───────────────────────────
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WORK_MANAGER_CHANNEL)
+        // ── JobScheduler 保活通道 ──────────────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, JOBSCHEDULER_CHANNEL)
             .setMethodCallHandler { call, result ->
                 try {
                     when (call.method) {
                         "startPeriodicGuard" -> {
-                            WorkManagerScheduler.startPeriodicGuard(this)
+                            JobSchedulerScheduler.startPeriodicGuard(this)
                             result.success(true)
                         }
                         "stopPeriodicGuard" -> {
-                            WorkManagerScheduler.stopPeriodicGuard(this)
+                            JobSchedulerScheduler.stopPeriodicGuard(this)
                             result.success(true)
                         }
-                        "scheduleBlockWorker" -> {
+                        "scheduleBlockJob" -> {
                             val ruleId = call.argument<Int>("ruleId") ?: 0
                             val isStart = call.argument<Boolean>("isStart") ?: true
                             val triggerTimeMs = call.argument<Long>("triggerTimeMs") ?: 0L
@@ -228,21 +230,21 @@ class MainActivity : FlutterActivity() {
                             val blockWifi = call.argument<Boolean>("blockWifi") ?: true
                             val blockMobile = call.argument<Boolean>("blockMobile") ?: true
                             val allowedApps = call.argument<List<String>>("allowedApps") ?: emptyList()
-                            WorkManagerScheduler.scheduleBlockWorker(
+                            JobSchedulerScheduler.scheduleJob(
                                 this, ruleId, isStart, triggerTimeMs,
                                 ruleName, blockWifi, blockMobile, allowedApps
                             )
                             result.success(true)
                         }
-                        "cancelBlockWorker" -> {
+                        "cancelBlockJob" -> {
                             val ruleId = call.argument<Int>("ruleId") ?: 0
-                            WorkManagerScheduler.cancelBlockWorker(this, ruleId)
+                            JobSchedulerScheduler.cancelJob(this, ruleId)
                             result.success(true)
                         }
                         else -> result.notImplemented()
                     }
                 } catch (e: Exception) {
-                    result.error("WORK_MANAGER_ERROR", e.message, null)
+                    result.error("JOBSCHEDULER_ERROR", e.message, null)
                 }
             }
 
